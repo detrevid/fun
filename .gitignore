@@ -1,0 +1,10 @@
+### Haskell
+dist
+.cabal-sandbox/
+cabal.sandbox.config
+
+### JetBrains  IDE
+*.iml
+.idea/
+
+
