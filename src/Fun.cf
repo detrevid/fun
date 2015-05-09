@@ -2,9 +2,11 @@
 ELog.           Exp   ::= Exp LogOpr Exp1;
 EEq.            Exp1  ::= Exp1 EqOpr Exp2;
 ERel.           Exp2  ::= Exp2 RelOpr Exp3;
-EConst.         Exp3  ::= Constant;
+EAdd.           Exp3  ::= Exp3 AddOpr Exp4;
+EMul.      	    Exp4  ::= Exp4 MulOpr Exp5;
+EConst.         Exp5  ::= Constant;
 
-coercions Exp 3;
+coercions Exp 5;
 
 -- Constant
 CInt.           Constant ::= Integer;
@@ -24,3 +26,9 @@ OLes. RelOpr ::= "<";
 OGrt. RelOpr ::= ">";
 OLeq. RelOpr ::= "<=";
 OGeq. RelOpr ::= ">=";
+--
+OAdd. AddOpr ::= "+";
+OSub. AddOpr ::= "-";
+--
+OMul. MulOpr ::= "*";
+ODiv. MulOpr ::= "/";

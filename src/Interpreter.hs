@@ -25,6 +25,8 @@ transExp x = case x of
   ELog exp1 logopr exp2  -> evalBinOpExp (transLogOpr logopr) exp1 exp2
   EEq exp1 eqopr exp2  -> evalBinOpExp (transEqOpr eqopr) exp1 exp2
   ERel exp1 relopr exp2  -> evalBinOpExp (transRelOpr relopr) exp1 exp2
+  EAdd exp1 addopr exp2  -> evalBinOpExp (transAddOpr addopr) exp1 exp2
+  EMul exp1 mulopr exp2  -> evalBinOpExp (transMulOpr mulopr) exp1 exp2
   EConst const  -> transConstant const
 
 evalBinOpExp :: (Value -> Value -> Result) -> Exp -> Exp -> Result
@@ -65,4 +67,18 @@ transRelOpr x a b =
     (OGrt, VInt v1, VInt v2) -> success $ VBool $ v1 > v2
     (OLeq, VInt v1, VInt v2)  -> success $ VBool $ v1 <= v2
     (OGeq, VInt v1, VInt v2) -> success $ VBool $ v1 >= v2
+    _                          -> failure (x, a, b)
+
+transAddOpr :: AddOpr -> Value -> Value -> Result
+transAddOpr x a b =
+  case (x, a, b) of
+    (OAdd, VInt v1, VInt v2)  -> success $ VInt $ v1 + v2
+    (OSub, VInt v1, VInt v2) -> success $ VInt $ v1 - v2
+    _                          -> failure (x, a, b)
+
+transMulOpr :: MulOpr -> Value -> Value -> Result
+transMulOpr x a b =
+  case (x, a, b) of
+    (OMul, VInt v1, VInt v2)  -> success $ VInt $ v1 * v2
+    (ODiv, VInt v1, VInt v2) -> success $ VInt $ v1 `quot` v2
     _                          -> failure (x, a, b)
