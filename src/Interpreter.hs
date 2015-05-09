@@ -24,6 +24,13 @@ success x = Ok $ x
 transExp :: Exp -> State Env Result
 transExp x =
   case x of
+    ELet id exp1 exp2  -> do
+      e1  <- transExp exp1
+      oldEnv <- get
+      modify (Map.insert id e1)
+      result <- transExp exp2
+      put oldEnv
+      return result
     ELog exp1 logopr exp2  -> do
       evalBinOpExp (transLogOpr logopr) exp1 exp2
     EEq exp1 eqopr exp2  -> do
