@@ -1,7 +1,6 @@
 -- Boolean arithmetic's operations
 ELog.           Exp   ::= Exp LogOpr Exp1;
 ELet.           Exp   ::= "let" Ident "=" Exp "in" Exp;
-EIf.            Exp   ::= "if" Exp "then" Exp "else" Exp;
 EEq.            Exp1  ::= Exp1 EqOpr Exp2;
 ERel.           Exp2  ::= Exp2 RelOpr Exp3;
 EAdd.           Exp3  ::= Exp3 AddOpr Exp4;
@@ -9,6 +8,7 @@ EMul.      	    Exp4  ::= Exp4 MulOpr Exp5;
 ENeg.           Exp5 ::= "not" Exp6;
 EConst.         Exp6  ::= Constant;
 EVal.           Exp6  ::= Ident;
+EIf.            Exp6   ::= "if" Exp "then" Exp "else" Exp;
 
 coercions Exp 6;
 
