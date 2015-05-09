@@ -4,9 +4,10 @@ EEq.            Exp1  ::= Exp1 EqOpr Exp2;
 ERel.           Exp2  ::= Exp2 RelOpr Exp3;
 EAdd.           Exp3  ::= Exp3 AddOpr Exp4;
 EMul.      	    Exp4  ::= Exp4 MulOpr Exp5;
-EConst.         Exp5  ::= Constant;
+ENeg.           Exp5 ::= "not" Exp6;
+EConst.         Exp6  ::= Constant;
 
-coercions Exp 5;
+coercions Exp 6;
 
 -- Constant
 CInt.           Constant ::= Integer;

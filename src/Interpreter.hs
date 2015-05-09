@@ -4,6 +4,7 @@ import AbsFun
 import ErrM
 
 import Data.Map as Map
+import Debug.Trace
 import Control.Monad.State
 
 data Value
@@ -27,6 +28,7 @@ transExp x = case x of
   ERel exp1 relopr exp2  -> evalBinOpExp (transRelOpr relopr) exp1 exp2
   EAdd exp1 addopr exp2  -> evalBinOpExp (transAddOpr addopr) exp1 exp2
   EMul exp1 mulopr exp2  -> evalBinOpExp (transMulOpr mulopr) exp1 exp2
+  ENeg exp  -> evalNeg exp
   EConst const  -> transConstant const
 
 evalBinOpExp :: (Value -> Value -> Result) -> Exp -> Exp -> Result
@@ -34,6 +36,13 @@ evalBinOpExp op exp1 exp2 = do
   e1 <- transExp exp1
   e2 <- transExp exp2
   op e1 e2
+
+evalNeg :: Exp -> Result
+evalNeg exp = do
+  e <- transExp exp
+  case e of
+    VBool b -> success $ VBool $ not b
+    _       -> failure exp
 
 transConstant :: Constant -> Result
 transConstant x = do
