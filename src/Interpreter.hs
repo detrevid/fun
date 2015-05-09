@@ -31,6 +31,10 @@ transExp x =
       result <- transExp exp2
       put oldEnv
       return result
+    EIf cond exp1 exp2  -> do
+      Ok (VBool c) <- transExp cond
+      if c then transExp exp1
+           else transExp exp2
     ELog exp1 logopr exp2  -> do
       evalBinOpExp (transLogOpr logopr) exp1 exp2
     EEq exp1 eqopr exp2  -> do
