@@ -4,7 +4,9 @@ module Main where
     import ParFun
     import AbsFun
     import Interpreter
-  
+
+    import Control.Monad.State
+    import Data.Map as Map
     import ErrM
   
     main = do
@@ -14,5 +16,5 @@ module Main where
     calc s =
       let p = pExp (myLexer s)
       in case p of
-        Ok e  -> show (transExp e)
+        Ok e  -> show (evalState (transExp e) Map.empty)
         Bad m -> show m

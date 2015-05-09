@@ -13,7 +13,7 @@ data Value
   deriving (Eq,Ord,Show)
 
 type Result = Err Value
-type Env = Map.Map String Int
+type Env = Map.Map Ident Result
 
 failure :: Show a => a -> Result
 failure x = Bad $ "Undefined case: " ++ show x
@@ -21,35 +21,48 @@ failure x = Bad $ "Undefined case: " ++ show x
 success :: Value -> Result
 success x = Ok $ x
 
-transExp :: Exp -> Result
-transExp x = case x of
-  ELog exp1 logopr exp2  -> evalBinOpExp (transLogOpr logopr) exp1 exp2
-  EEq exp1 eqopr exp2  -> evalBinOpExp (transEqOpr eqopr) exp1 exp2
-  ERel exp1 relopr exp2  -> evalBinOpExp (transRelOpr relopr) exp1 exp2
-  EAdd exp1 addopr exp2  -> evalBinOpExp (transAddOpr addopr) exp1 exp2
-  EMul exp1 mulopr exp2  -> evalBinOpExp (transMulOpr mulopr) exp1 exp2
-  ENeg exp  -> evalNeg exp
-  EConst const  -> transConstant const
+transExp :: Exp -> State Env Result
+transExp x =
+  case x of
+    ELog exp1 logopr exp2  -> do
+      evalBinOpExp (transLogOpr logopr) exp1 exp2
+    EEq exp1 eqopr exp2  -> do
+      evalBinOpExp (transEqOpr eqopr) exp1 exp2
+    ERel exp1 relopr exp2  -> do
+      evalBinOpExp (transRelOpr relopr) exp1 exp2
+    EAdd exp1 addopr exp2  -> do
+      evalBinOpExp (transAddOpr addopr) exp1 exp2
+    EMul exp1 mulopr exp2  -> do
+      evalBinOpExp (transMulOpr mulopr) exp1 exp2
+    ENeg exp  -> do
+      evalNeg exp
+    EVal id -> do
+      val <- gets (Map.lookup id)
+      case val of
+        Just v -> return v
+        Nothing -> return $ Bad $ "Undeclared variable: " ++ show id
+    EConst const  -> do
+      transConstant const
 
-evalBinOpExp :: (Value -> Value -> Result) -> Exp -> Exp -> Result
+evalBinOpExp :: (Value -> Value -> Result) -> Exp -> Exp -> State Env Result
 evalBinOpExp op exp1 exp2 = do
-  e1 <- transExp exp1
-  e2 <- transExp exp2
-  op e1 e2
+  Ok e1 <- transExp exp1
+  Ok e2 <- transExp exp2
+  return $ op e1 e2
 
-evalNeg :: Exp -> Result
+evalNeg :: Exp -> State Env Result
 evalNeg exp = do
-  e <- transExp exp
+  Ok e <- transExp exp
   case e of
-    VBool b -> success $ VBool $ not b
-    _       -> failure exp
+    VBool b -> return $ success $ VBool $ not b
+    _       -> return $ failure exp
 
-transConstant :: Constant -> Result
+transConstant :: Constant -> State Env Result
 transConstant x = do
  case x of
-   CTrue  -> return $ VBool True
-   CFalse  -> return $ VBool False
-   CInt n  -> return $ VInt n
+   CTrue  -> return $ Ok $ VBool True
+   CFalse  -> return $ Ok $ VBool False
+   CInt n  -> return $ Ok $ VInt n
 
 
 transLogOpr :: LogOpr -> Value -> Value -> Result
@@ -65,29 +78,29 @@ transEqOpr x a b =
   case (x, a, b) of
     (OEq, VBool v1, VBool v2)  -> success $ VBool $ v1 == v2
     (ONeq, VBool v1, VBool v2) -> success $ VBool $ v1 /= v2
-    (OEq, VInt v1, VInt v2)  -> success $ VBool $ v1 == v2
-    (ONeq, VInt v1, VInt v2) -> success $ VBool $ v1 /= v2
+    (OEq, VInt v1, VInt v2)    -> success $ VBool $ v1 == v2
+    (ONeq, VInt v1, VInt v2)   -> success $ VBool $ v1 /= v2
     _                          -> failure (x, a, b)
 
 transRelOpr :: RelOpr -> Value -> Value -> Result
 transRelOpr x a b =
   case (x, a, b) of
-    (OLes, VInt v1, VInt v2)  -> success $ VBool $ v1 < v2
+    (OLes, VInt v1, VInt v2) -> success $ VBool $ v1 < v2
     (OGrt, VInt v1, VInt v2) -> success $ VBool $ v1 > v2
-    (OLeq, VInt v1, VInt v2)  -> success $ VBool $ v1 <= v2
+    (OLeq, VInt v1, VInt v2) -> success $ VBool $ v1 <= v2
     (OGeq, VInt v1, VInt v2) -> success $ VBool $ v1 >= v2
-    _                          -> failure (x, a, b)
+    _                        -> failure (x, a, b)
 
 transAddOpr :: AddOpr -> Value -> Value -> Result
 transAddOpr x a b =
   case (x, a, b) of
-    (OAdd, VInt v1, VInt v2)  -> success $ VInt $ v1 + v2
+    (OAdd, VInt v1, VInt v2) -> success $ VInt $ v1 + v2
     (OSub, VInt v1, VInt v2) -> success $ VInt $ v1 - v2
-    _                          -> failure (x, a, b)
+    _                        -> failure (x, a, b)
 
 transMulOpr :: MulOpr -> Value -> Value -> Result
 transMulOpr x a b =
   case (x, a, b) of
-    (OMul, VInt v1, VInt v2)  -> success $ VInt $ v1 * v2
+    (OMul, VInt v1, VInt v2) -> success $ VInt $ v1 * v2
     (ODiv, VInt v1, VInt v2) -> success $ VInt $ v1 `quot` v2
-    _                          -> failure (x, a, b)
+    _                        -> failure (x, a, b)

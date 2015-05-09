@@ -6,6 +6,7 @@ EAdd.           Exp3  ::= Exp3 AddOpr Exp4;
 EMul.      	    Exp4  ::= Exp4 MulOpr Exp5;
 ENeg.           Exp5 ::= "not" Exp6;
 EConst.         Exp6  ::= Constant;
+EVal.           Exp6  ::= Ident;
 
 coercions Exp 6;
 
