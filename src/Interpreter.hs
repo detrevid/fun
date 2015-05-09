@@ -3,23 +3,37 @@ module Interpreter where
 import AbsFun
 import ErrM
 
-import Data.Map as Map
+import qualified Data.Map as Map
 import Debug.Trace
 import Control.Monad.State
 
 data Value
   = VInt Integer
   | VBool Bool
-  deriving (Eq,Ord,Show)
+  deriving (Eq,Ord)
 
 type Result = Err Value
 type Env = Map.Map Ident Result
+
+instance Show Value where
+  show r = case r of
+    VInt i  -> show i
+    VBool b -> show b
 
 failure :: Show a => a -> Result
 failure x = Bad $ "Undefined case: " ++ show x
 
 success :: Value -> Result
 success x = Ok $ x
+
+transProgram :: Program -> Result
+transProgram x = case x of
+  Prog stmts ->
+    fst $ foldl (\x y -> runState (transStmt y) (snd x)) (Ok $ VBool True, Map.empty) stmts
+
+transStmt :: Stmt -> State Env Result
+transStmt x = case x of
+  SExp exp  -> transExp exp
 
 transExp :: Exp -> State Env Result
 transExp x =

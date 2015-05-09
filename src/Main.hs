@@ -14,7 +14,7 @@ module Main where
       putStrLn ""
 
     calc s =
-      let p = pExp (myLexer s)
+      let p = pProgram (myLexer s)
       in case p of
-        Ok e  -> show (evalState (transExp e) Map.empty)
+        Ok prog -> show $ transProgram prog
         Bad m -> show m
