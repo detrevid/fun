@@ -8,3 +8,24 @@ cabal.sandbox.config
 .idea/
 
 
+### Files that can be made with bnfc -m -haskell Fun.cf && make command in src/
+src/*.hi
+src/*.o
+src/*.aux
+src/*.log
+src/*.dvi
+src/*.bak
+src/*.ps
+src/*.txt
+src/*.tex
+src/*.x
+src/*.y
+src/Makefile
+src/AbsFun.hs
+src/ErrM.hs
+src/LexFun.hs
+src/ParFun.hs
+src/PrintFun.hs
+src/SkelFun.hs
+src/TestFun.hs
+src/TestFun

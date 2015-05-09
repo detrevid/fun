@@ -1,0 +1,26 @@
+-- Boolean arithmetic's operations
+ELog.           Exp   ::= Exp LogOpr Exp1;
+EEq.            Exp1  ::= Exp1 EqOpr Exp2;
+ERel.           Exp2  ::= Exp2 RelOpr Exp3;
+EConst.         Exp3  ::= Constant;
+
+coercions Exp 3;
+
+-- Constant
+CInt.           Constant ::= Integer;
+CTrue.	        Constant ::= "true";
+CFalse.	        Constant ::= "false";
+
+
+-- Operators
+-- Logical Operators
+OOr.  LogOpr ::= "or";
+OAnd. LogOpr ::= "and";
+-- Equality Operators
+OEq.  EqOpr  ::= "==";
+ONeq. EqOpr  ::= "!=";
+-- Relational Operators
+OLes. RelOpr ::= "<";
+OGrt. RelOpr ::= ">";
+OLeq. RelOpr ::= "<=";
+OGeq. RelOpr ::= ">=";
