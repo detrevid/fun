@@ -6,10 +6,12 @@ import ErrM
 import qualified Data.Map as Map
 import Debug.Trace
 import Control.Monad.State
+--import Control.Monad.Trans.State.Strict
 
 data Value
   = VInt Integer
   | VBool Bool
+  | VFun Ident Exp Env
   deriving (Eq,Ord)
 
 type Result = Err Value
@@ -19,6 +21,7 @@ instance Show Value where
   show r = case r of
     VInt i  -> show i
     VBool b -> show b
+    VFun _ _ _ -> show "Function"
 
 failure :: Show a => a -> Result
 failure x = Bad $ "Undefined case: " ++ show x
@@ -31,6 +34,12 @@ transProgram x = case x of
   Prog stmts ->
     fst $ foldl (\x y -> runState (transStmt y) (snd x)) (Ok $ VBool True, Map.empty) stmts
 
+{--transDecl :: Decl -> State Env Result
+transDecl x = case x of
+  DFun fId arg exp  -> do
+    e <- transExp exp
+    modify (Map.insert fId e)--}
+
 transStmt :: Stmt -> State Env Result
 transStmt x = case x of
   SExp exp  -> transExp exp
@@ -39,7 +48,7 @@ transExp :: Exp -> State Env Result
 transExp x =
   case x of
     ELet id exp1 exp2  -> do
-      e1  <- transExp exp1
+      e1 <- transExp exp1
       oldEnv <- get
       modify (Map.insert id e1)
       result <- transExp exp2
@@ -68,6 +77,20 @@ transExp x =
         Nothing -> return $ Bad $ "Undeclared variable: " ++ show id
     EConst const  -> do
       transConstant const
+    ELam id exp  -> do
+      env <- get
+      return $ transLam id exp env
+    EApp exp1 exp2  -> do
+      f <- transExp exp1
+      case f of
+        Ok (VFun arg exp3 env) -> do
+          oldEnv <- get
+          e <- transExp exp2
+          modify (Map.insert arg e)
+          result <- transExp exp3
+          put oldEnv
+          return $ result
+        _ -> return $ Bad $ "Expression is not a function: " ++ show exp1
 
 evalBinOpExp :: (Value -> Value -> Result) -> Exp -> Exp -> State Env Result
 evalBinOpExp op exp1 exp2 = do
@@ -129,3 +152,7 @@ transMulOpr x a b =
     (OMul, VInt v1, VInt v2) -> success $ VInt $ v1 * v2
     (ODiv, VInt v1, VInt v2) -> success $ VInt $ v1 `quot` v2
     _                        -> failure (x, a, b)
+
+transLam :: Ident -> Exp -> Env -> Result
+transLam arg exp env = do
+  success $ VFun arg exp env

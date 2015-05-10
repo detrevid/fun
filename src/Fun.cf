@@ -7,19 +7,25 @@ terminator Stmt ";" ;
 -- Statements
 SExp.    Stmt ::= Exp;
 
--- Boolean arithmetic's operations
-ELog.           Exp   ::= Exp LogOpr Exp1;
-EEq.            Exp1  ::= Exp1 EqOpr Exp2;
-ERel.           Exp2  ::= Exp2 RelOpr Exp3;
-EAdd.           Exp3  ::= Exp3 AddOpr Exp4;
-EMul.      	    Exp4  ::= Exp4 MulOpr Exp5;
-ENeg.           Exp5 ::= "not" Exp6;
-EConst.         Exp6  ::= Constant;
-EVal.           Exp6  ::= Ident;
-ELet.           Exp6   ::= "let" Ident "=" Exp "in" Exp;
-EIf.            Exp6   ::= "if" Exp "then" Exp "else" Exp;
+{--
+-- Declarations
+DFun.    Decl ::= "fun" Ident Ident "=" Exp;--}
 
-coercions Exp 6;
+
+ELog.    Exp   ::= Exp LogOpr Exp1;
+EEq.     Exp1  ::= Exp1 EqOpr Exp2;
+ERel.    Exp2  ::= Exp2 RelOpr Exp3;
+EAdd.    Exp3  ::= Exp3 AddOpr Exp4;
+EMul.    Exp4  ::= Exp4 MulOpr Exp5;
+ENeg.    Exp5  ::= "not" Exp6;
+EConst.  Exp6  ::= Constant;
+EVal.    Exp6  ::= Ident;
+ELet.    Exp7  ::= "let" Ident "=" Exp "in" Exp;
+EIf.     Exp7  ::= "if" Exp "then" Exp "else" Exp;
+ELam.    Exp7  ::= "lam" Ident "->" Exp;
+EApp.    Exp7  ::= Exp Exp;
+
+coercions Exp 7;
 
 -- Constant
 CInt.           Constant ::= Integer;
