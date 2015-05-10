@@ -6,11 +6,10 @@ terminator Stmt ";" ;
 
 -- Statements
 SExp.    Stmt ::= Exp;
+DExp.    Stmt ::= Decl;
 
-{--
 -- Declarations
 DFun.    Decl ::= "fun" Ident Ident "=" Exp;--}
-
 
 ELog.    Exp   ::= Exp LogOpr Exp1;
 EEq.     Exp1  ::= Exp1 EqOpr Exp2;
