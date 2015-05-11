@@ -84,8 +84,8 @@ transExp x =
     ELam args exp -> do
       env <- get
       return $ transLam args exp env
-    EApp exp1 exps  -> do
-      transApp exp1 exps
+    EApp exp1 exp2  -> do
+      transApp exp1 exp2
 
 evalBinOpExp :: (Value -> Value -> Result) -> Exp -> Exp -> State Env Result
 evalBinOpExp op exp1 exp2 = do
@@ -159,14 +159,9 @@ transLam args exp env = do
   --trace ("transLam" ++ (show $ length args))
   (success $ VFun args exp env)
 
-transApp :: Exp -> Exp -> State Env Result
-transApp exp1 exps = do
-  let f = transExp exp1 in
-    foldl (\x y -> transApp2 x y) f [exps]
-
-transApp2 :: State Env Result -> Exp -> State Env Result
-transApp2 h exp2 = do
-  f <- h
+transApp :: Exp  -> Exp -> State Env Result
+transApp exp1 exp2 = do
+  f <- transExp exp1
   case f of
     Ok (VFun args exp3 env) -> do
       oldEnv <- get
