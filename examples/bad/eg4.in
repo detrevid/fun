@@ -1,0 +1,1 @@
+let f = lam x -> { g $ x } in { f $ 2 };
