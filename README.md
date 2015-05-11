@@ -22,6 +22,8 @@ http://bnfc.digitalgrammars.com/download/
 ./remake_grammar.sh
 ```
 
+The script creates necessary files for later compilation using bnfc, so it's vital that you don't miss this step (and perform previous one before this).
+
 ###4. Use cabal to install
 
 ```
@@ -29,6 +31,7 @@ cabal install
 ```
 
 ###5. Run with cabal
+
 ```
 cabal run < examples/good/eg1.in
 ```
