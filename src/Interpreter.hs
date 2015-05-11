@@ -11,8 +11,8 @@ import Control.Monad.State
 data Value
   = VInt Integer
   | VBool Bool
-  | VFun Ident Exp Env
-  | VNFun Ident Ident Exp Env
+  | VFun [Ident] Exp Env
+  | VNFun Ident [Ident] Exp Env
   deriving (Eq,Ord)
 
 type Result = Err Value
@@ -43,10 +43,10 @@ transStmt x = case x of
 
 transDecl :: Decl -> State Env Result
 transDecl x = case x of
-  DFun id1 id2 exp -> do
+  DFun id args exp -> do
     oldEnv <- get
-    let fun = VNFun id1 id2 exp oldEnv in do
-      modify (Map.insert id1 (Ok fun))
+    let fun = VNFun id args exp oldEnv in do
+      modify (Map.insert id (Ok fun))
       return $ Ok $ fun
 
 transExp :: Exp -> State Env Result
@@ -82,11 +82,11 @@ transExp x =
         Nothing -> return $ Bad $ "Undeclared variable: " ++ show id
     EConst const  -> do
       transConstant const
-    ELam id exp  -> do
+    ELam args exp -> do
       env <- get
-      return $ transLam id exp env
-    EApp exp1 exp2  -> do
-      transApp exp1 exp2
+      return $ transLam args exp env
+    EApp exp1 exps  -> do
+      transApp exp1 exps
 
 evalBinOpExp :: (Value -> Value -> Result) -> Exp -> Exp -> State Env Result
 evalBinOpExp op exp1 exp2 = do
@@ -149,29 +149,67 @@ transMulOpr x a b =
     (ODiv, VInt v1, VInt v2) -> success $ VInt $ v1 `quot` v2
     _                        -> failure (x, a, b)
 
-transLam :: Ident -> Exp -> Env -> Result
-transLam arg exp env = do
-  success $ VFun arg exp env
+transLam :: [Ident] -> Exp -> Env -> Result
+transLam args exp env = do
+  --trace ("transLam" ++ (show $ length args))
+  (success $ VFun args exp env)
 
-transApp :: Exp -> Exp -> State Env Result
-transApp exp1 exp2 = do
- f <- transExp exp1
- case f of
-   Ok (VFun arg exp3 env) -> do
-     oldEnv <- get
-     e <- transExp exp2
-     put env
-     modify (Map.insert arg e)
-     result <- transExp exp3
-     put oldEnv
-     return $ result
-   Ok (VNFun name arg exp3 env) -> do
-     oldEnv <- get
-     e <- transExp exp2
-     put env
-     modify (Map.insert arg e)
-     modify (Map.insert name f)
-     result <- transExp exp3
-     put oldEnv
-     return $ result
-   _ -> return $ Bad $ "Expression is not a function: " ++ show exp1
+transApp :: Exp -> [Exp] -> State Env Result
+transApp exp1 exps = do
+
+  let f = transExp exp1 in
+    --trace ("transApp" ++ (show $ length exps))
+    foldl (\x y -> transApp2 x y) f exps
+  {--
+  case f of
+    Ok (VFun args exp3 env) -> do
+      oldEnv <- get
+      put env
+
+      put oldEnv
+      return result
+    Ok (VNFun name arg exp3 env) -> do
+      oldEnv <- get
+      put env
+      modify (Map.insert name f)
+      result <- foldl (\x y -> transApp2 x y) exp1 exps
+      put oldEnv
+      return result
+    _ -> return $ Bad $ "Expression is not a function: " ++ show exp1--}
+
+transApp2 :: State Env Result -> Exp -> State Env Result
+transApp2 h exp2 = do
+  f <- h
+  case f of
+    Ok (VFun args exp3 env) -> do
+      oldEnv <- get
+      e <- transExp exp2
+      put env
+      modify (Map.insert (head args) e)
+      case (tail args) of
+        h2:t2 -> do
+          newEnv <- get
+          let f = VFun (h2:t2) exp3 newEnv in do
+            put oldEnv
+            return $ Ok $ f
+        [] -> do
+          result <- transExp exp3
+          put oldEnv
+          return $ result
+    Ok (VNFun name args exp3 env) -> do
+      oldEnv <- get
+      e <- transExp exp2
+      put env
+      modify (Map.insert name f)
+      modify (Map.insert (head args) e)
+      case (tail args) of
+        h2:t2 -> do
+          newEnv <- get
+          let f = VFun (h2:t2) exp3 newEnv in do
+            put oldEnv
+            return $ Ok $ f
+        [] -> do
+          result <- transExp exp3
+          put oldEnv
+          return $ result
+    _ -> return $ Bad $ "Expression is not a function: " ++ show f

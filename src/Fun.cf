@@ -3,13 +3,15 @@ Prog. Program  ::= [Stmt];
 
 -- Terminators
 terminator Stmt ";" ;
+separator nonempty Ident "";
+separator nonempty Exp "";
 
 -- Statements
 SExp.    Stmt ::= Exp;
 DExp.    Stmt ::= Decl;
 
 -- Declarations
-DFun.    Decl ::= "fun" Ident Ident "=" Exp;--}
+DFun.    Decl ::= "fun" Ident [Ident] "=" Exp;
 
 ELog.    Exp   ::= Exp LogOpr Exp1;
 EEq.     Exp1  ::= Exp1 EqOpr Exp2;
@@ -21,8 +23,8 @@ EConst.  Exp6  ::= Constant;
 EVal.    Exp6  ::= Ident;
 ELet.    Exp7  ::= "let" Ident "=" Exp "in" Exp;
 EIf.     Exp7  ::= "if" Exp "then" Exp "else" Exp;
-ELam.    Exp7  ::= "lam" Ident "->" Exp;
-EApp.    Exp7  ::= Exp Exp;
+ELam.    Exp7  ::= "lam" [Ident] "->" Exp;
+EApp.    Exp7  ::= Exp "$" [Exp];
 
 coercions Exp 7;
 
