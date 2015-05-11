@@ -10,19 +10,22 @@ import Control.Monad.State
 data Value
   = VInt Integer
   | VBool Bool
-  | VFun [Ident] Exp Env
-  | VNFun Ident [Ident] Exp Env
-  deriving (Eq,Ord)
+  | VFun Fun
+  | VNFun Ident Fun
+  deriving (Eq)
+
+data Fun = Fun { args :: [Ident], exp :: Exp, env :: Env } deriving (Eq)
 
 type Result = Err Value
 type Env = Map.Map Ident Result
+type Eval = State Env Result
 
 instance Show Value where
   show r = case r of
     VInt i  -> show i
     VBool b -> show b
-    VFun _ _ _ -> show "Unnamed function"
-    VNFun (Ident id) _ _ _ -> show "Function: " ++ show id
+    VFun _ -> show "Unnamed function"
+    VNFun (Ident id) _ -> show "Function: " ++ show id
 
 failure :: Show a => a -> Result
 failure x = Bad $ "Undefined case: " ++ show x
@@ -35,20 +38,20 @@ transProgram x = case x of
   Prog stmts ->
     fst $ foldl (\x y -> runState (transStmt y) (snd x)) (Ok $ VBool True, Map.empty) stmts
 
-transStmt :: Stmt -> State Env Result
+transStmt :: Stmt -> Eval
 transStmt x = case x of
   SExp exp  -> transExp exp
   DExp decl  -> transDecl decl
 
-transDecl :: Decl -> State Env Result
+transDecl :: Decl -> Eval
 transDecl x = case x of
   DFun id args exp -> do
     oldEnv <- get
-    let fun = VNFun id args exp oldEnv in do
+    let fun = VNFun id $ Fun args exp oldEnv in do
       modify (Map.insert id (Ok fun))
       return $ Ok $ fun
 
-transExp :: Exp -> State Env Result
+transExp :: Exp -> Eval
 transExp x =
   case x of
     ELet id exp1 exp2  -> do
@@ -87,7 +90,7 @@ transExp x =
     EApp exp1 exp2  -> do
       transApp exp1 exp2
 
-evalBinOpExp :: (Value -> Value -> Result) -> Exp -> Exp -> State Env Result
+evalBinOpExp :: (Value -> Value -> Result) -> Exp -> Exp -> Eval
 evalBinOpExp op exp1 exp2 = do
   e1 <- transExp exp1
   e2 <- transExp exp2
@@ -96,7 +99,7 @@ evalBinOpExp op exp1 exp2 = do
     (Bad m, _) -> return $ Bad m
     (_, Bad m) -> return $ Bad m
 
-evalNeg :: Exp -> State Env Result
+evalNeg :: Exp -> Eval
 evalNeg exp = do
   e <- transExp exp
   case e of
@@ -104,7 +107,7 @@ evalNeg exp = do
     Bad m        -> return $ Bad m
     _            -> return $ Bad $ "Cannot apply negation to the expression: " ++ show exp
 
-transConstant :: Constant -> State Env Result
+transConstant :: Constant -> Eval
 transConstant x = do
  case x of
    CTrue   -> return $ Ok $ VBool True
@@ -156,14 +159,13 @@ transMulOpr x a b =
 
 transLam :: [Ident] -> Exp -> Env -> Result
 transLam args exp env = do
-  --trace ("transLam" ++ (show $ length args))
-  (success $ VFun args exp env)
+  (success $ VFun $ Fun args exp env)
 
-transApp :: Exp  -> Exp -> State Env Result
+transApp :: Exp  -> Exp -> Eval
 transApp exp1 exp2 = do
   f <- transExp exp1
   case f of
-    Ok (VFun args exp3 env) -> do
+    Ok (VFun (Fun args exp3 env)) -> do
       oldEnv <- get
       e <- transExp exp2
       put env
@@ -171,14 +173,14 @@ transApp exp1 exp2 = do
       case (tail args) of
         h2:t2 -> do
           newEnv <- get
-          let f = VFun (h2:t2) exp3 newEnv in do
+          let f = VFun $ Fun (h2:t2) exp3 newEnv in do
             put oldEnv
             return $ Ok $ f
         [] -> do
           result <- transExp exp3
           put oldEnv
           return $ result
-    Ok (VNFun name args exp3 env) -> do
+    Ok (VNFun name (Fun args exp3 env)) -> do
       oldEnv <- get
       e <- transExp exp2
       put env
@@ -187,7 +189,7 @@ transApp exp1 exp2 = do
       case (tail args) of
         h2:t2 -> do
           newEnv <- get
-          let f = VFun (h2:t2) exp3 newEnv in do
+          let f = VFun $ Fun (h2:t2) exp3 newEnv in do
             put oldEnv
             return $ Ok $ f
         [] -> do
