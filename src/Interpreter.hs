@@ -161,40 +161,30 @@ transLam :: [Ident] -> Exp -> Env -> Result
 transLam args exp env = do
   (success $ VFun $ Fun args exp env)
 
+funApp :: Fun -> Exp -> Eval
+funApp (Fun args exp env) exp2 = do
+  oldEnv <- get
+  e <- transExp exp2
+  put env
+  modify (Map.insert (head args) e)
+  let newArgs = tail args in
+    if not $ null newArgs
+      then do
+        newEnv <- get
+        let f = VFun $ Fun newArgs exp newEnv in do
+          put oldEnv
+          return $ Ok $ f
+      else do
+        result <- transExp exp
+        put oldEnv
+        return $ result
+
 transApp :: Exp  -> Exp -> Eval
 transApp exp1 exp2 = do
   f <- transExp exp1
   case f of
-    Ok (VFun (Fun args exp3 env)) -> do
-      oldEnv <- get
-      e <- transExp exp2
-      put env
-      modify (Map.insert (head args) e)
-      case (tail args) of
-        h2:t2 -> do
-          newEnv <- get
-          let f = VFun $ Fun (h2:t2) exp3 newEnv in do
-            put oldEnv
-            return $ Ok $ f
-        [] -> do
-          result <- transExp exp3
-          put oldEnv
-          return $ result
-    Ok (VNFun name (Fun args exp3 env)) -> do
-      oldEnv <- get
-      e <- transExp exp2
-      put env
-      modify (Map.insert name f)
-      modify (Map.insert (head args) e)
-      case (tail args) of
-        h2:t2 -> do
-          newEnv <- get
-          let f = VFun $ Fun (h2:t2) exp3 newEnv in do
-            put oldEnv
-            return $ Ok $ f
-        [] -> do
-          result <- transExp exp3
-          put oldEnv
-          return $ result
+    Ok (VFun f') -> funApp f' exp2
+    Ok (VNFun name (Fun args exp3 env)) ->
+      funApp (Fun args exp3 (Map.insert name f env)) exp2
     Bad m -> return $ Bad m
     _     -> return $ Bad $ "Expression is not a function: " ++ show f
