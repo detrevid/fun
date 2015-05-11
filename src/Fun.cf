@@ -13,6 +13,7 @@ DExp.    Stmt  ::= Decl;
 -- Declarations
 DFun.    Decl  ::= "fun" Ident [Ident] "=" Exp;
 
+-- Expressions
 ELet.    Exp  ::= "let" Ident "=" Exp "in" "{" Exp "}";
 EIf.     Exp  ::= "if" Exp "then" Exp "else" Exp "endif";
 ELam.    Exp  ::= "lam" [Ident] "->" "{" Exp "}";

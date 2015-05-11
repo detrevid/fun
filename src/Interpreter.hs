@@ -6,7 +6,6 @@ import ErrM
 import qualified Data.Map as Map
 import Debug.Trace
 import Control.Monad.State
---import Control.Monad.Trans.State.Strict
 
 data Value
   = VInt Integer
@@ -90,21 +89,25 @@ transExp x =
 
 evalBinOpExp :: (Value -> Value -> Result) -> Exp -> Exp -> State Env Result
 evalBinOpExp op exp1 exp2 = do
-  Ok e1 <- transExp exp1
-  Ok e2 <- transExp exp2
-  return $ op e1 e2
+  e1 <- transExp exp1
+  e2 <- transExp exp2
+  case (e1, e2) of
+    (Ok le, Ok re) -> return $ op le re
+    (Bad m, _) -> return $ Bad m
+    (_, Bad m) -> return $ Bad m
 
 evalNeg :: Exp -> State Env Result
 evalNeg exp = do
-  Ok e <- transExp exp
+  e <- transExp exp
   case e of
-    VBool b -> return $ success $ VBool $ not b
-    _       -> return $ failure exp
+    Ok (VBool b) -> return $ success $ VBool $ not b
+    Bad m        -> return $ Bad m
+    _            -> return $ Bad $ "Cannot apply negation to the expression: " ++ show exp
 
 transConstant :: Constant -> State Env Result
 transConstant x = do
  case x of
-   CTrue  -> return $ Ok $ VBool True
+   CTrue   -> return $ Ok $ VBool True
    CFalse  -> return $ Ok $ VBool False
    CInt n  -> return $ Ok $ VInt n
 
@@ -146,7 +149,9 @@ transMulOpr :: MulOpr -> Value -> Value -> Result
 transMulOpr x a b =
   case (x, a, b) of
     (OMul, VInt v1, VInt v2) -> success $ VInt $ v1 * v2
-    (ODiv, VInt v1, VInt v2) -> success $ VInt $ v1 `quot` v2
+    (ODiv, VInt v1, VInt v2) ->
+      if v2 /= 0 then success $ VInt $ v1 `quot` v2
+                 else Bad $ "Division by zero"
     _                        -> failure (x, a, b)
 
 transLam :: [Ident] -> Exp -> Env -> Result
@@ -194,4 +199,5 @@ transApp2 h exp2 = do
           result <- transExp exp3
           put oldEnv
           return $ result
-    _ -> return $ Bad $ "Expression is not a function: " ++ show f
+    Bad m -> return $ Bad m
+    _     -> return $ Bad $ "Expression is not a function: " ++ show f
