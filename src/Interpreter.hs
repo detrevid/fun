@@ -154,10 +154,10 @@ transLam args exp env = do
   --trace ("transLam" ++ (show $ length args))
   (success $ VFun args exp env)
 
-transApp :: Exp -> [Exp] -> State Env Result
+transApp :: Exp -> Exp -> State Env Result
 transApp exp1 exps = do
   let f = transExp exp1 in
-    foldl (\x y -> transApp2 x y) f exps
+    foldl (\x y -> transApp2 x y) f [exps]
 
 transApp2 :: State Env Result -> Exp -> State Env Result
 transApp2 h exp2 = do
