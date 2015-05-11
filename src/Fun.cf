@@ -1,6 +1,9 @@
 -- Program
 Prog. Program  ::= [Stmt];
 
+-- Comments
+comment "#" ;
+
 -- Terminators
 terminator Stmt ";" ;
 separator nonempty Ident "";
