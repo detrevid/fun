@@ -10,10 +10,10 @@ module Main where
     import ErrM
   
     main = do
-      interact calc
+      interact iterpret
       putStrLn ""
 
-    calc s =
+    iterpret s =
       let p = pProgram (myLexer s)
       in case p of
         Ok prog -> show $ transProgram prog

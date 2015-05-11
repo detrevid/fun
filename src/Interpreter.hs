@@ -156,26 +156,8 @@ transLam args exp env = do
 
 transApp :: Exp -> [Exp] -> State Env Result
 transApp exp1 exps = do
-
   let f = transExp exp1 in
-    --trace ("transApp" ++ (show $ length exps))
     foldl (\x y -> transApp2 x y) f exps
-  {--
-  case f of
-    Ok (VFun args exp3 env) -> do
-      oldEnv <- get
-      put env
-
-      put oldEnv
-      return result
-    Ok (VNFun name arg exp3 env) -> do
-      oldEnv <- get
-      put env
-      modify (Map.insert name f)
-      result <- foldl (\x y -> transApp2 x y) exp1 exps
-      put oldEnv
-      return result
-    _ -> return $ Bad $ "Expression is not a function: " ++ show exp1--}
 
 transApp2 :: State Env Result -> Exp -> State Env Result
 transApp2 h exp2 = do
