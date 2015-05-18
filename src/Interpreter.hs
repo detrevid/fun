@@ -17,7 +17,7 @@ data Value
 data Fun = Fun { args :: [Ident], exp :: Exp, env :: Env } deriving (Eq)
 
 type Result = Err Value
-type Env = Map.Map Ident Result
+type Env = Map.Map Ident Value
 type Eval = State Env Result
 
 emptyEnv :: Env
@@ -51,7 +51,7 @@ transDecl x = case x of
   DFun id args exp -> do
     oldEnv <- get
     let fun = VNFun id $ Fun args exp oldEnv in do
-      modify (Map.insert id (Ok fun))
+      modify (Map.insert id fun)
       return $ Ok $ fun
 
 transExp :: Exp -> Eval
@@ -59,11 +59,14 @@ transExp x =
   case x of
     ELet id exp1 exp2  -> do
       e1 <- transExp exp1
-      oldEnv <- get
-      modify (Map.insert id e1)
-      result <- transExp exp2
-      put oldEnv
-      return result
+      case e1 of
+        Ok e1' -> do
+          oldEnv <- get
+          modify (Map.insert id e1')
+          result <- transExp exp2
+          put oldEnv
+          return result
+        Bad m -> return $ Bad m
     EIf cond exp1 exp2  -> do
       Ok (VBool c) <- transExp cond
       if c then transExp exp1
@@ -83,7 +86,7 @@ transExp x =
     EVal id -> do
       val <- gets (Map.lookup id)
       case val of
-        Just v -> return v
+        Just v -> return $ Ok $ v
         Nothing -> return $ Bad $ "Undeclared variable: " ++ show id
     EConst const  -> do
       transConstant const
@@ -168,26 +171,29 @@ funApp :: Fun -> Exp -> Eval
 funApp (Fun args exp env) exp2 = do
   oldEnv <- get
   e <- transExp exp2
-  put env
-  modify (Map.insert (head args) e)
-  let newArgs = tail args in
-    if not $ null newArgs
-      then do
-        newEnv <- get
-        let f = VFun $ Fun newArgs exp newEnv in do
-          put oldEnv
-          return $ Ok $ f
-      else do
-        result <- transExp exp
-        put oldEnv
-        return $ result
+  case e of
+    Ok e' -> do
+      put env
+      modify (Map.insert (head args) e')
+      let newArgs = tail args in
+        if not $ null newArgs
+          then do
+            newEnv <- get
+            let f = VFun $ Fun newArgs exp newEnv in do
+              put oldEnv
+              return $ Ok $ f
+          else do
+            result <- transExp exp
+            put oldEnv
+            return $ result
+    Bad m -> return $ Bad m
 
 transApp :: Exp  -> Exp -> Eval
 transApp exp1 exp2 = do
   f <- transExp exp1
   case f of
     Ok (VFun f') -> funApp f' exp2
-    Ok (VNFun name (Fun args exp3 env)) ->
-      funApp (Fun args exp3 (Map.insert name f env)) exp2
+    Ok f'@(VNFun name (Fun args exp3 env)) ->
+      funApp (Fun args exp3 (Map.insert name f' env)) exp2
     Bad m -> return $ Bad m
     _     -> return $ Bad $ "Expression is not a function: " ++ show f
