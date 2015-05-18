@@ -20,6 +20,9 @@ type Result = Err Value
 type Env = Map.Map Ident Result
 type Eval = State Env Result
 
+emptyEnv :: Env
+emptyEnv = Map.empty
+
 instance Show Value where
   show r = case r of
     VInt i  -> show i
@@ -36,7 +39,7 @@ success x = Ok $ x
 transProgram :: Program -> Result
 transProgram x = case x of
   Prog stmts ->
-    fst $ foldl (\x y -> runState (transStmt y) (snd x)) (Ok $ VBool True, Map.empty) stmts
+    fst $ foldl (\x y -> runState (transStmt y) (snd x)) (Ok $ VBool True, emptyEnv) stmts
 
 transStmt :: Stmt -> Eval
 transStmt x = case x of
