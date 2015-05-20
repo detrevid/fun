@@ -64,6 +64,9 @@ lookupTypeEnv env id = case Map.lookup id env of
 composeSubst :: Subst -> Subst -> Subst
 composeSubst sub1 sub2 = Map.union (Map.map (instType sub1) sub2) sub1
 
+composeSubsts :: [Subst] -> Subst
+composeSubsts = foldl composeSubst idSub
+
 ftv :: Type -> Set.Set Ident
 ftv t = case t of
   TInner _    -> Set.empty
@@ -124,7 +127,7 @@ infer env tvs exp = case exp of
     (texp1, sub1, tvs'') <- infer env' tvs' exp1
     (texp2, sub2, tvs''') <- infer (instTypeEnv sub1 env') tvs'' exp2
     sub3          <- unify texp1 texp2
-    return (instType sub3 texp2, composeSubst (composeSubst (composeSubst sub3 sub2) sub1) sub, tvs'')
+    return (instType sub3 texp2, composeSubsts [sub3, sub2, sub1, sub], tvs'')
   ELog exp1 logopr exp2  -> inferBinOp env tvs exp1 exp2 typeBool
   EEq exp1 eqopr exp2 -> do
     let intInfer = inferBinOp env tvs exp1 exp2 typeInt
@@ -158,7 +161,7 @@ infer env tvs exp = case exp of
     (texp1, sub1, tvs'') <- infer env tvs' exp1
     (texp2, sub2, tvs''') <- infer (instTypeEnv sub1 env) tvs'' exp2
     sub3 <- unify (instType sub2 texp1) (TFun texp2 (TVal newId))
-    return (instType sub3 (TVal newId), composeSubst sub3 (composeSubst sub2 sub1), tvs''')
+    return (instType sub3 (TVal newId), composeSubsts [sub3, sub2, sub1], tvs''')
 
 inferConst :: Constant -> Type
 inferConst x = case x of
@@ -172,7 +175,7 @@ inferBinOp env tvs exp1 exp2 t = do
   (texp2, sub2, tvs'') <- infer (instTypeEnv sub1 env) tvs' exp2
   sub3  <- unify (instType sub2 texp1) t
   sub4  <- unify (instType sub3 texp2) t
-  let sub = composeSubst sub4 (composeSubst sub3 (composeSubst sub2 sub1))
+  let sub = composeSubsts [sub4, sub3, sub2, sub1]
   return (t, sub, tvs'')
 
 inferDecl :: TypeEnv -> TypeVarSupplier -> Decl -> Err TypeEnv
