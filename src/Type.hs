@@ -101,19 +101,20 @@ instTypeEnv sub env = Map.map (instTypeScheme sub) env
 unify :: Type -> Type -> Err Subst
 unify t1 t2
   | t1 == t2  =  return idSub
-  | otherwise =
+  | otherwise = do
+    let errMsg = "Could not unify types: " ++ show t1 ++ show t2
     case (t1, t2) of
       (TVal id, _)           ->
-        if Set.member id $ ftv t2 then Bad "MISTAAAKE!"
+        if Set.member id $ ftv t2 then Bad errMsg
                                   else return (Map.singleton id t2)
       (_, TVal id)           ->
-        if Set.member id $ ftv t1 then Bad "MISTAAAKE!"
+        if Set.member id $ ftv t1 then Bad errMsg
                                   else return (Map.singleton id t1)
       (TFun x y, TFun x' y') -> do
         s1 <- unify x x'
         s2 <- unify (instType s1 y) (instType s1 y')
         return $ composeSubst s1 s2
-      (_, _)                 ->  Bad "MISTAAAKE!"
+      (_, _)                 -> Bad errMsg
 
 infer :: TypeEnv -> TypeVarSupplier -> Exp -> Err (Type, Subst, TypeVarSupplier)
 infer env tvs exp =
