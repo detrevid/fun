@@ -9,11 +9,19 @@ import qualified Data.Set as Set
 import Control.Monad.State
 import Debug.Trace
 
-data Type = TInt
-          | TBool
+data Type = TInner Inner
           | TVal Ident
           | TFun Type Type
-          deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show)
+
+data Inner = Bool
+          | Int
+  deriving (Eq, Ord, Show)
+
+typeInt :: Type
+typeInt = TInner Int
+typeBool :: Type
+typeBool = TInner Bool
 
 data TypeScheme = TypeScheme [Ident] Type
 type Subst = Map.Map Ident Type
@@ -61,8 +69,7 @@ composeSubst sub1 sub2 = Map.union (Map.map (instType sub1) sub2) sub1
 ftv :: Type -> Set.Set Ident
 ftv t =
   case t of
-    TInt       -> Set.empty
-    TBool      -> Set.empty
+    TInner _    -> Set.empty
     TVal id    -> Set.singleton id
     TFun t1 t2 -> Set.union (ftv t1) (ftv t2)
 
@@ -126,22 +133,21 @@ infer env tvs exp =
         (texp2, sub2, tvs''') <- infer (instTypeEnv sub1 env') tvs'' exp2
         sub3          <- unify texp1 texp2
         return (instType sub3 texp2, composeSubst (composeSubst (composeSubst sub3 sub2) sub1) sub, tvs'')
-    ELog exp1 logopr exp2  ->
-       inferBinBoolOp env tvs exp1 exp2
+    ELog exp1 logopr exp2  -> inferBinOp env tvs exp1 exp2 typeBool
     EEq exp1 eqopr exp2  ->
-      let intInfer = inferBinIntOp env tvs exp1 exp2 in
+      let intInfer = inferBinOp env tvs exp1 exp2 typeInt in
         case intInfer of
-          Bad m                 -> inferBinBoolOp env tvs exp1 exp2
-          Ok (texp, sub1, tvs') -> return (TBool, sub1, tvs')
+          Bad m                 -> inferBinOp env tvs exp1 exp2 typeBool
+          Ok (texp, sub1, tvs') -> return (typeBool, sub1, tvs')
     ERel exp1 relopr exp2  -> do
-      (texp, sub1, tvs') <- inferBinIntOp env tvs exp1 exp2
-      return (TBool, sub1, tvs')
-    EAdd exp1 addopr exp2  -> inferBinIntOp env tvs exp1 exp2
-    EMul exp1 mulopr exp2  -> inferBinIntOp env tvs exp1 exp2
+      (texp, sub1, tvs') <- inferBinOp env tvs exp1 exp2 typeInt
+      return (typeBool, sub1, tvs')
+    EAdd exp1 addopr exp2  -> inferBinOp env tvs exp1 exp2 typeInt
+    EMul exp1 mulopr exp2  -> inferBinOp env tvs exp1 exp2 typeInt
     ENeg exp1 -> do
       (texp, sub1, tvs') <- infer env tvs exp1
-      sub2 <- unify texp TBool
-      return (texp, sub2, tvs')
+      sub2 <- unify texp typeBool
+      return (typeBool, sub2, tvs')
     EVal id -> do
       ts <- lookupTypeEnv env id
       (ts', tvs') <- instantAll tvs ts
@@ -168,27 +174,18 @@ infer env tvs exp =
 inferConst :: Constant -> Type
 inferConst x =
  case x of
-   CTrue   -> TBool
-   CFalse  -> TBool
-   CInt _  -> TInt
+   CTrue   -> typeBool
+   CFalse  -> typeBool
+   CInt _  -> typeInt
 
-inferBinIntOp :: TypeEnv -> TypeVarSupplier -> Exp -> Exp -> Err (Type, Subst, TypeVarSupplier)
-inferBinIntOp env tvs exp1 exp2 = do
+inferBinOp :: TypeEnv -> TypeVarSupplier -> Exp -> Exp -> Type -> Err (Type, Subst, TypeVarSupplier)
+inferBinOp env tvs exp1 exp2 t = do
   (texp1, sub1, tvs') <- infer env tvs exp1
   (texp2, sub2, tvs'') <- infer (instTypeEnv sub1 env) tvs' exp2
-  sub3  <- unify (instType sub2 texp1) TInt
-  sub4  <- unify (instType sub3 texp2) TInt
+  sub3  <- unify (instType sub2 texp1) t
+  sub4  <- unify (instType sub3 texp2) t
   let sub = composeSubst sub4 (composeSubst sub3 (composeSubst sub2 sub1)) in
-    return (TInt, sub, tvs'')
-
-inferBinBoolOp :: TypeEnv -> TypeVarSupplier -> Exp -> Exp -> Err (Type, Subst, TypeVarSupplier)
-inferBinBoolOp env tvs exp1 exp2 = do
-  (texp1, sub1, tvs') <- infer env tvs exp1
-  (texp2, sub2, tvs'') <- infer (instTypeEnv sub1 env) tvs' exp2
-  sub3  <- unify (instType sub2 texp1) TBool
-  sub4  <- unify (instType sub3 texp2) TBool
-  let sub = composeSubst sub4 (composeSubst sub3 (composeSubst sub2 sub1)) in
-    return (TBool, sub, tvs'')
+    return (t, sub, tvs'')
 
 inferDecl :: TypeEnv -> TypeVarSupplier -> Decl -> Err TypeEnv
 inferDecl env tvs decl =
@@ -207,16 +204,12 @@ inferDecl env tvs decl =
 checkTypesStmt :: TypeEnv -> Stmt -> Err TypeEnv
 checkTypesStmt env stmt =
   case stmt of
-    SExp exp  -> case infer env newTypeVarSupplier exp of
-      Ok (t, s, tvs) -> trace (show t) (Ok env)
-      Bad m -> Bad m
-    DExp decl  -> case inferDecl env newTypeVarSupplier decl of
-      Ok e ->  Ok e
-      Bad m -> Bad m
+    SExp exp  -> do
+      (t, s, tvs) <- infer env newTypeVarSupplier exp
+      return $ trace (show t) (env)
+    DExp decl -> inferDecl env newTypeVarSupplier decl
 
 checkTypes :: Program -> Err TypeEnv
 checkTypes x = case x of
   Prog stmts ->
-    foldl (\x y -> case x of
-      Ok env -> checkTypesStmt env y
-      Bad m -> Bad m) (Ok emptyTypeEnv) stmts
+    foldM (\x y -> checkTypesStmt x y) (emptyTypeEnv) stmts
