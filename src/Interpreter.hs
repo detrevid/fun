@@ -2,6 +2,7 @@ module Interpreter where
 
 import AbsFun
 import ErrM
+import Type
 
 import qualified Data.Map as Map
 import Debug.Trace
@@ -37,9 +38,13 @@ success :: Value -> Result
 success x = Ok $ x
 
 transProgram :: Program -> Result
-transProgram x = case x of
-  Prog stmts ->
-    fst $ foldl (\x y -> runState (transStmt y) (snd x)) (Ok $ VBool True, emptyEnv) stmts
+transProgram x =
+  case checkTypes x of
+    Ok _  ->
+      case x of
+        Prog stmts ->
+          fst $ foldl (\x y -> runState (transStmt y) (snd x)) (Ok $ VBool True, emptyEnv) stmts
+    Bad m -> Bad m
 
 transStmt :: Stmt -> Eval
 transStmt x = case x of
