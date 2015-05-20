@@ -10,7 +10,7 @@ import Control.Monad.State
 import Debug.Trace
 
 data Type = TInner Inner
-          | TVal Ident
+          | TVar Ident
           | TFun Type Type
   deriving (Eq, Ord, Show)
 
@@ -45,7 +45,7 @@ instantAll tvs (TypeScheme ids t) =
   Ok (t', tvs')
  where
   (ids', tvs') = foldr (\y x -> let (newId, newTS) = getNewTypeVar $ snd x in (newId : fst x, newTS)) ([], tvs) ids
-  sub = Map.fromList (zip ids (map TVal ids'))
+  sub = Map.fromList (zip ids (map TVar ids'))
   t' = instType sub t
 
 idSub :: Subst
@@ -53,7 +53,7 @@ idSub = Map.empty
 
 lookupSub :: Subst -> Ident -> Type
 lookupSub sub id = case Map.lookup id sub of
-    Nothing  -> TVal id
+    Nothing  -> TVar id
     Just t   -> t
 
 lookupTypeEnv :: TypeEnv -> Ident -> Err TypeScheme
@@ -70,7 +70,7 @@ composeSubsts = foldl composeSubst idSub
 ftv :: Type -> Set.Set Ident
 ftv t = case t of
   TInner _    -> Set.empty
-  TVal id    -> Set.singleton id
+  TVar id    -> Set.singleton id
   TFun t1 t2 -> Set.union (ftv t1) (ftv t2)
 
 ftvScheme :: TypeScheme -> Set.Set Ident
@@ -82,7 +82,7 @@ ftvEnv te = Map.foldr (\x y -> Set.union y $ ftvScheme x) Set.empty te
 -- instance type
 instType :: Subst -> Type -> Type
 instType sub t = case t of
-  TVal id    -> lookupSub sub id
+  TVar id    -> lookupSub sub id
   TFun t1 t2 -> TFun (instType sub t1) (instType sub t2)
   _          -> t
 
@@ -100,10 +100,10 @@ unify t1 t2
   | otherwise = do
     let errMsg = "Could not unify types: " ++ show t1 ++ show t2
     case (t1, t2) of
-      (TVal id, _)           ->
+      (TVar id, _)           ->
         if Set.member id $ ftv t2 then Bad errMsg
                                   else return (Map.singleton id t2)
-      (_, TVal id)           ->
+      (_, TVar id)           ->
         if Set.member id $ ftv t1 then Bad errMsg
                                   else return (Map.singleton id t1)
       (TFun x y, TFun x' y') -> do
@@ -152,16 +152,16 @@ infer env tvs exp = case exp of
     h:t -> do
       let (newId, tvs') = getNewTypeVar tvs
           newEnv = Map.delete h env
-          newEnv' = (Map.union newEnv (Map.singleton h (TypeScheme [] (TVal newId))))
+          newEnv' = (Map.union newEnv (Map.singleton h (TypeScheme [] (TVar newId))))
       (texp1, sub1, tvs'') <- infer newEnv' tvs' $ ELam t exp1
-      return (TFun (instType sub1 (TVal newId)) texp1, sub1, tvs'')
+      return (TFun (instType sub1 (TVar newId)) texp1, sub1, tvs'')
     []  -> infer env tvs exp1
   EApp exp1 exp2 -> do
     let (newId, tvs') = getNewTypeVar tvs
     (texp1, sub1, tvs'') <- infer env tvs' exp1
     (texp2, sub2, tvs''') <- infer (instTypeEnv sub1 env) tvs'' exp2
-    sub3 <- unify (instType sub2 texp1) (TFun texp2 (TVal newId))
-    return (instType sub3 (TVal newId), composeSubsts [sub3, sub2, sub1], tvs''')
+    sub3 <- unify (instType sub2 texp1) (TFun texp2 (TVar newId))
+    return (instType sub3 (TVar newId), composeSubsts [sub3, sub2, sub1], tvs''')
 
 inferConst :: Constant -> Type
 inferConst x = case x of
@@ -183,7 +183,7 @@ inferDecl env tvs decl = case decl of
   DFun fname ids exp -> do
     let (newId1, tvs') = getNewTypeVar tvs
         (newId2, tvs'') = getNewTypeVar tvs'
-        fun = TFun (TVal newId1) (TVal newId2)
+        fun = TFun (TVar newId1) (TVar newId2)
         env' = Map.delete fname env
         env'' = Map.insert fname (TypeScheme [newId1, newId2] fun) env'
     (texp1, sub1, tvs''') <- infer env'' tvs'' (ELam ids exp)
