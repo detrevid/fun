@@ -38,13 +38,11 @@ success :: Value -> Result
 success x = Ok $ x
 
 transProgram :: Program -> Result
-transProgram x =
-  case checkTypes x of
-    Ok _  ->
-      case x of
-        Prog stmts ->
-          fst $ foldl (\x y -> runState (transStmt y) (snd x)) (Ok $ VBool True, emptyEnv) stmts
-    Bad m -> Bad m
+transProgram x = do
+  checkTypes x
+  case x of
+    Prog stmts ->
+      fst $ foldl (\x y -> runState (transStmt y) (snd x)) (Ok $ VBool True, emptyEnv) stmts
 
 transStmt :: Stmt -> Eval
 transStmt x = case x of
@@ -55,51 +53,42 @@ transDecl :: Decl -> Eval
 transDecl x = case x of
   DFun id args exp -> do
     oldEnv <- get
-    let fun = VNFun id $ Fun args exp oldEnv in do
-      modify (Map.insert id fun)
-      return $ Ok $ fun
+    let fun = VNFun id $ Fun args exp oldEnv
+    modify (Map.insert id fun)
+    return $ Ok $ fun
 
 transExp :: Exp -> Eval
-transExp x =
-  case x of
-    ELet id exp1 exp2  -> do
-      e1 <- transExp exp1
-      case e1 of
-        Ok e1' -> do
-          oldEnv <- get
-          modify (Map.insert id e1')
-          result <- transExp exp2
-          put oldEnv
-          return result
-        Bad m -> return $ Bad m
-    EIf cond exp1 exp2  -> do
-      Ok (VBool c) <- transExp cond
-      if c then transExp exp1
-           else transExp exp2
-    ELog exp1 logopr exp2  -> do
-      evalBinOpExp (transLogOpr logopr) exp1 exp2
-    EEq exp1 eqopr exp2  -> do
-      evalBinOpExp (transEqOpr eqopr) exp1 exp2
-    ERel exp1 relopr exp2  -> do
-      evalBinOpExp (transRelOpr relopr) exp1 exp2
-    EAdd exp1 addopr exp2  -> do
-      evalBinOpExp (transAddOpr addopr) exp1 exp2
-    EMul exp1 mulopr exp2  -> do
-      evalBinOpExp (transMulOpr mulopr) exp1 exp2
-    ENeg exp  -> do
-      evalNeg exp
-    EVal id -> do
-      val <- gets (Map.lookup id)
-      case val of
-        Just v -> return $ Ok $ v
-        Nothing -> return $ Bad $ "Undeclared variable: " ++ show id
-    EConst const  -> do
-      transConstant const
-    ELam args exp -> do
-      env <- get
-      return $ transLam args exp env
-    EApp exp1 exp2  -> do
-      transApp exp1 exp2
+transExp x = case x of
+  ELet id exp1 exp2  -> do
+    e1 <- transExp exp1
+    case e1 of
+      Ok e1' -> do
+        oldEnv <- get
+        modify (Map.insert id e1')
+        result <- transExp exp2
+        put oldEnv
+        return result
+      Bad m -> return $ Bad m
+  EIf cond exp1 exp2  -> do
+    Ok (VBool c) <- transExp cond
+    if c then transExp exp1
+         else transExp exp2
+  ELog exp1 logopr exp2  -> evalBinOpExp (transLogOpr logopr) exp1 exp2
+  EEq exp1 eqopr exp2  -> evalBinOpExp (transEqOpr eqopr) exp1 exp2
+  ERel exp1 relopr exp2  -> evalBinOpExp (transRelOpr relopr) exp1 exp2
+  EAdd exp1 addopr exp2  -> evalBinOpExp (transAddOpr addopr) exp1 exp2
+  EMul exp1 mulopr exp2  -> evalBinOpExp (transMulOpr mulopr) exp1 exp2
+  ENeg exp  -> evalNeg exp
+  EVal id -> do
+    val <- gets (Map.lookup id)
+    case val of
+      Just v -> return $ Ok $ v
+      Nothing -> return $ Bad $ "Undeclared variable: " ++ show id
+  EConst const  -> transConstant const
+  ELam args exp -> do
+    env <- get
+    return $ transLam args exp env
+  EApp exp1 exp2  -> transApp exp1 exp2
 
 evalBinOpExp :: (Value -> Value -> Result) -> Exp -> Exp -> Eval
 evalBinOpExp op exp1 exp2 = do
@@ -119,54 +108,48 @@ evalNeg exp = do
     _            -> return $ Bad $ "Cannot apply negation to the expression: " ++ show exp
 
 transConstant :: Constant -> Eval
-transConstant x = do
- case x of
-   CTrue   -> return $ Ok $ VBool True
-   CFalse  -> return $ Ok $ VBool False
-   CInt n  -> return $ Ok $ VInt n
+transConstant x = case x of
+  CTrue   -> return $ Ok $ VBool True
+  CFalse  -> return $ Ok $ VBool False
+  CInt n  -> return $ Ok $ VInt n
 
 
 transLogOpr :: LogOpr -> Value -> Value -> Result
-transLogOpr x a b =
-  case (x, a, b) of
-    (OOr, VBool v1, VBool v2)  -> success $ VBool $ v1 || v2
-    (OAnd, VBool v1, VBool v2) -> success $ VBool $ v1 && v2
-    _                          -> failure (x, a, b)
+transLogOpr x a b = case (x, a, b) of
+  (OOr, VBool v1, VBool v2)  -> success $ VBool $ v1 || v2
+  (OAnd, VBool v1, VBool v2) -> success $ VBool $ v1 && v2
+  _                          -> failure (x, a, b)
 
 
 transEqOpr :: EqOpr -> Value -> Value -> Result
-transEqOpr x a b =
-  case (x, a, b) of
-    (OEq, VBool v1, VBool v2)  -> success $ VBool $ v1 == v2
-    (ONeq, VBool v1, VBool v2) -> success $ VBool $ v1 /= v2
-    (OEq, VInt v1, VInt v2)    -> success $ VBool $ v1 == v2
-    (ONeq, VInt v1, VInt v2)   -> success $ VBool $ v1 /= v2
-    _                          -> failure (x, a, b)
+transEqOpr x a b = case (x, a, b) of
+  (OEq, VBool v1, VBool v2)  -> success $ VBool $ v1 == v2
+  (ONeq, VBool v1, VBool v2) -> success $ VBool $ v1 /= v2
+  (OEq, VInt v1, VInt v2)    -> success $ VBool $ v1 == v2
+  (ONeq, VInt v1, VInt v2)   -> success $ VBool $ v1 /= v2
+  _                          -> failure (x, a, b)
 
 transRelOpr :: RelOpr -> Value -> Value -> Result
-transRelOpr x a b =
-  case (x, a, b) of
-    (OLes, VInt v1, VInt v2) -> success $ VBool $ v1 < v2
-    (OGrt, VInt v1, VInt v2) -> success $ VBool $ v1 > v2
-    (OLeq, VInt v1, VInt v2) -> success $ VBool $ v1 <= v2
-    (OGeq, VInt v1, VInt v2) -> success $ VBool $ v1 >= v2
-    _                        -> failure (x, a, b)
+transRelOpr x a b = case (x, a, b) of
+  (OLes, VInt v1, VInt v2) -> success $ VBool $ v1 < v2
+  (OGrt, VInt v1, VInt v2) -> success $ VBool $ v1 > v2
+  (OLeq, VInt v1, VInt v2) -> success $ VBool $ v1 <= v2
+  (OGeq, VInt v1, VInt v2) -> success $ VBool $ v1 >= v2
+  _                        -> failure (x, a, b)
 
 transAddOpr :: AddOpr -> Value -> Value -> Result
-transAddOpr x a b =
-  case (x, a, b) of
-    (OAdd, VInt v1, VInt v2) -> success $ VInt $ v1 + v2
-    (OSub, VInt v1, VInt v2) -> success $ VInt $ v1 - v2
-    _                        -> failure (x, a, b)
+transAddOpr x a b = case (x, a, b) of
+  (OAdd, VInt v1, VInt v2) -> success $ VInt $ v1 + v2
+  (OSub, VInt v1, VInt v2) -> success $ VInt $ v1 - v2
+  _                        -> failure (x, a, b)
 
 transMulOpr :: MulOpr -> Value -> Value -> Result
-transMulOpr x a b =
-  case (x, a, b) of
-    (OMul, VInt v1, VInt v2) -> success $ VInt $ v1 * v2
-    (ODiv, VInt v1, VInt v2) ->
-      if v2 /= 0 then success $ VInt $ v1 `quot` v2
-                 else Bad $ "Division by zero"
-    _                        -> failure (x, a, b)
+transMulOpr x a b = case (x, a, b) of
+  (OMul, VInt v1, VInt v2) -> success $ VInt $ v1 * v2
+  (ODiv, VInt v1, VInt v2) ->
+    if v2 /= 0 then success $ VInt $ v1 `quot` v2
+               else Bad $ "Division by zero"
+  _                        -> failure (x, a, b)
 
 transLam :: [Ident] -> Exp -> Env -> Result
 transLam args exp env = do
@@ -180,17 +163,17 @@ funApp (Fun args exp env) exp2 = do
     Ok e' -> do
       put env
       modify (Map.insert (head args) e')
-      let newArgs = tail args in
-        if not $ null newArgs
-          then do
-            newEnv <- get
-            let f = VFun $ Fun newArgs exp newEnv in do
-              put oldEnv
-              return $ Ok $ f
-          else do
-            result <- transExp exp
-            put oldEnv
-            return $ result
+      let newArgs = tail args
+      if not $ null newArgs
+        then do
+          newEnv <- get
+          let f = VFun $ Fun newArgs exp newEnv
+          put oldEnv
+          return $ Ok $ f
+        else do
+          result <- transExp exp
+          put oldEnv
+          return $ result
     Bad m -> return $ Bad m
 
 transApp :: Exp  -> Exp -> Eval
