@@ -109,13 +109,11 @@ unify t1 t2
   | t1 == t2  =  return idSub
   | otherwise = do
     let errMsg = "Could not unify types: " ++ show t1 ++ show t2
+        unifyVar id t = if Set.member id $ ftv t then fail errMsg
+                                                 else return (Map.singleton id t)
     case (t1, t2) of
-      (TVar id, _)           ->
-        if Set.member id $ ftv t2 then fail errMsg
-                                  else return (Map.singleton id t2)
-      (_, TVar id)           ->
-        if Set.member id $ ftv t1 then fail errMsg
-                                  else return (Map.singleton id t1)
+      (TVar id, _)           -> unifyVar id t2
+      (_, TVar id)           -> unifyVar id t1
       (TFun x y, TFun x' y') -> do
         s1 <- unify x x'
         s2 <- unify (instType s1 y) (instType s1 y')
