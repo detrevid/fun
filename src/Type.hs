@@ -1,3 +1,5 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Type where
 
 import AbsFun
@@ -6,7 +8,8 @@ import ErrM
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-import Control.Monad.State
+import Control.Monad
+import Control.Monad.Trans.State
 import Debug.Trace
 
 data Type = TInner Inner
@@ -15,7 +18,7 @@ data Type = TInner Inner
   deriving (Eq, Ord, Show)
 
 data Inner = Bool
-          | Int
+           | Int
   deriving (Eq, Ord, Show)
 
 typeInt :: Type
@@ -27,26 +30,33 @@ data TypeScheme = TypeScheme [Ident] Type
 type Subst = Map.Map Ident Type
 type TypeEnv = Map.Map Ident TypeScheme
 
-data TypeVarSupplier = TypeVarSupplier { count :: Int }
+data TypeVarSupplier = TypeVarSupplier [String]
 
-getNewTypeVar :: TypeVarSupplier -> (Type, TypeVarSupplier)
-getNewTypeVar tvs =
-  (TVar $ Ident $ ["t" ++ show i | i <- [1..]] !! c, TypeVarSupplier { count = c + 1 })
- where c = count tvs
+getNewTypeVar' :: TypeVarSupplier -> (Type, TypeVarSupplier)
+getNewTypeVar' (TypeVarSupplier ids) =
+  (TVar $ Ident $ head ids, TypeVarSupplier $ tail ids)
 
 newTypeVarSupplier :: TypeVarSupplier
-newTypeVarSupplier = TypeVarSupplier { count = 0 }
+newTypeVarSupplier = TypeVarSupplier [ "t" ++ show n | n <- [1..]]
+
+newtype InferType a = InferType (StateT TypeVarSupplier Err a)
+  deriving (Functor, Monad)
+
+getNewTypeVar :: InferType Type
+getNewTypeVar = InferType $ state getNewTypeVar'
+
+runInferType :: InferType a -> Err a
+runInferType (InferType x) = evalStateT x newTypeVarSupplier
 
 emptyTypeEnv :: TypeEnv
 emptyTypeEnv = Map.empty
 
-instantAll :: TypeVarSupplier -> TypeScheme -> Err (Type, TypeVarSupplier)
-instantAll tvs (TypeScheme ids t) =
-  Ok (t', tvs')
- where
-  (vars, tvs') = foldr (\y x -> let (newVar, newTS) = getNewTypeVar $ snd x in (newVar : fst x, newTS)) ([], tvs) ids
-  sub = Map.fromList (zip ids vars)
-  t' = instType sub t
+instantAll :: TypeScheme -> InferType Type
+instantAll (TypeScheme ids t) = do
+  vars <- replicateM (length ids) getNewTypeVar
+  let sub = Map.fromList (zip ids vars)
+      t' = instType sub t
+  return t'
 
 idSub :: Subst
 idSub = Map.empty
@@ -56,10 +66,10 @@ lookupSub sub id = case Map.lookup id sub of
     Nothing  -> TVar id
     Just t   -> t
 
-lookupTypeEnv :: TypeEnv -> Ident -> Err TypeScheme
+lookupTypeEnv :: Monad m => TypeEnv -> Ident -> m TypeScheme
 lookupTypeEnv env id = case Map.lookup id env of
-  Nothing  -> Bad $ "Variable " ++ show id ++ "is not bound"
-  Just t   -> Ok t
+  Nothing  -> fail $ "Variable " ++ show id ++ "is not bound"
+  Just t   -> return t
 
 composeSubst :: Subst -> Subst -> Subst
 composeSubst sub1 sub2 = Map.union (Map.map (instType sub1) sub2) sub1
@@ -94,74 +104,75 @@ instTypeScheme sub ts = case ts of
 instTypeEnv :: Subst -> TypeEnv -> TypeEnv
 instTypeEnv sub env = Map.map (instTypeScheme sub) env
 
-unify :: Type -> Type -> Err Subst
+unify :: Monad m => Type -> Type -> m Subst
 unify t1 t2
   | t1 == t2  =  return idSub
   | otherwise = do
     let errMsg = "Could not unify types: " ++ show t1 ++ show t2
     case (t1, t2) of
       (TVar id, _)           ->
-        if Set.member id $ ftv t2 then Bad errMsg
+        if Set.member id $ ftv t2 then fail errMsg
                                   else return (Map.singleton id t2)
       (_, TVar id)           ->
-        if Set.member id $ ftv t1 then Bad errMsg
+        if Set.member id $ ftv t1 then fail errMsg
                                   else return (Map.singleton id t1)
       (TFun x y, TFun x' y') -> do
         s1 <- unify x x'
         s2 <- unify (instType s1 y) (instType s1 y')
         return $ composeSubst s1 s2
-      (_, _)                 -> Bad errMsg
+      (_, _)                 -> fail errMsg
 
-infer :: TypeEnv -> TypeVarSupplier -> Exp -> Err (Type, Subst, TypeVarSupplier)
-infer env tvs exp = case exp of
+infer :: TypeEnv -> Exp -> InferType (Type, Subst)
+infer env exp = case exp of
   ELet id exp1 exp2 -> do
-    (texp1, sub1, tvs') <- infer env tvs exp1
+    (texp1, sub1) <- infer env exp1
     let env' = Map.delete id env
         ts' = TypeScheme (Set.toList (Set.difference (ftvEnv (instTypeEnv sub1 env)) (ftvEnv env))) texp1
         env'' = Map.insert id ts' env'
-    (texp2, sub2, tvs'') <- infer (instTypeEnv sub1 env'') tvs' exp2
-    return (texp2, composeSubst sub2 sub1, tvs'')
+    (texp2, sub2) <- infer (instTypeEnv sub1 env'') exp2
+    return (texp2, composeSubst sub2 sub1)
   EIf cond exp1 exp2 -> do
-    (tcond, sub, tvs') <- infer env tvs cond
+    (tcond, sub) <- infer env cond
     let env' = instTypeEnv sub env
-    (texp1, sub1, tvs'') <- infer env' tvs' exp1
-    (texp2, sub2, tvs''') <- infer (instTypeEnv sub1 env') tvs'' exp2
+    (texp1, sub1) <- infer env' exp1
+    (texp2, sub2) <- infer (instTypeEnv sub1 env') exp2
     sub3          <- unify texp1 texp2
-    return (instType sub3 texp2, composeSubsts [sub3, sub2, sub1, sub], tvs'')
-  ELog exp1 logopr exp2  -> inferBinOp env tvs exp1 exp2 typeBool
+    return (instType sub3 texp2, composeSubsts [sub3, sub2, sub1, sub])
+  ELog exp1 logopr exp2  -> inferBinOp env exp1 exp2 typeBool
   EEq exp1 eqopr exp2 -> do
-    let intInfer = inferBinOp env tvs exp1 exp2 typeInt
-    case intInfer of
-      Bad m                 -> inferBinOp env tvs exp1 exp2 typeBool
-      Ok (texp, sub1, tvs') -> return (typeBool, sub1, tvs')
+    (texp1, sub1) <- infer env exp1
+    (texp2, sub2) <- infer (instTypeEnv sub1 env) exp2
+    sub3 <- unify (instType sub2 texp1) texp2
+    let sub = composeSubsts [sub3, sub2, sub1]
+    return (typeBool, sub)
   ERel exp1 relopr exp2 -> do
-    (texp, sub1, tvs') <- inferBinOp env tvs exp1 exp2 typeInt
-    return (typeBool, sub1, tvs')
-  EAdd exp1 addopr exp2  -> inferBinOp env tvs exp1 exp2 typeInt
-  EMul exp1 mulopr exp2  -> inferBinOp env tvs exp1 exp2 typeInt
+    (texp, sub1) <- inferBinOp env exp1 exp2 typeInt
+    return (typeBool, sub1)
+  EAdd exp1 addopr exp2  -> inferBinOp env exp1 exp2 typeInt
+  EMul exp1 mulopr exp2  -> inferBinOp env exp1 exp2 typeInt
   ENeg exp1 -> do
-    (texp, sub1, tvs') <- infer env tvs exp1
+    (texp, sub1) <- infer env exp1
     sub2 <- unify texp typeBool
-    return (typeBool, sub2, tvs')
+    return (typeBool, sub2)
   EVal id -> do
     ts <- lookupTypeEnv env id
-    (ts', tvs') <- instantAll tvs ts
-    Ok (ts', idSub, tvs')
-  EConst const -> Ok (inferConst const, idSub, tvs)
+    ts' <- instantAll ts
+    return (ts', idSub)
+  EConst const -> return (inferConst const, idSub)
   ELam args exp1 -> case args of
     h:t -> do
-      let (newVar, tvs') = getNewTypeVar tvs
-          newEnv = Map.delete h env
+      newVar <- getNewTypeVar
+      let newEnv = Map.delete h env
           newEnv' = (Map.union newEnv (Map.singleton h (TypeScheme [] newVar)))
-      (texp1, sub1, tvs'') <- infer newEnv' tvs' $ ELam t exp1
-      return (TFun (instType sub1 newVar) texp1, sub1, tvs'')
-    []  -> infer env tvs exp1
+      (texp1, sub1) <- infer newEnv' $ ELam t exp1
+      return (TFun (instType sub1 newVar) texp1, sub1)
+    []  -> infer env exp1
   EApp exp1 exp2 -> do
-    let (newVar, tvs') = getNewTypeVar tvs
-    (texp1, sub1, tvs'') <- infer env tvs' exp1
-    (texp2, sub2, tvs''') <- infer (instTypeEnv sub1 env) tvs'' exp2
+    newVar <- getNewTypeVar
+    (texp1, sub1) <- infer env exp1
+    (texp2, sub2) <- infer (instTypeEnv sub1 env) exp2
     sub3 <- unify (instType sub2 texp1) (TFun texp2 newVar)
-    return (instType sub3 newVar, composeSubsts [sub3, sub2, sub1], tvs''')
+    return (instType sub3 newVar, composeSubsts [sub3, sub2, sub1])
 
 inferConst :: Constant -> Type
 inferConst x = case x of
@@ -169,38 +180,38 @@ inferConst x = case x of
  CFalse  -> typeBool
  CInt _  -> typeInt
 
-inferBinOp :: TypeEnv -> TypeVarSupplier -> Exp -> Exp -> Type -> Err (Type, Subst, TypeVarSupplier)
-inferBinOp env tvs exp1 exp2 t = do
-  (texp1, sub1, tvs') <- infer env tvs exp1
-  (texp2, sub2, tvs'') <- infer (instTypeEnv sub1 env) tvs' exp2
+inferBinOp :: TypeEnv -> Exp -> Exp -> Type -> InferType (Type, Subst)
+inferBinOp env exp1 exp2 t = do
+  (texp1, sub1) <- infer env exp1
+  (texp2, sub2) <- infer (instTypeEnv sub1 env) exp2
   sub3  <- unify (instType sub2 texp1) t
   sub4  <- unify (instType sub3 texp2) t
   let sub = composeSubsts [sub4, sub3, sub2, sub1]
-  return (t, sub, tvs'')
+  return (t, sub)
 
-inferDecl :: TypeEnv -> TypeVarSupplier -> Decl -> Err TypeEnv
-inferDecl env tvs decl = case decl of
+inferDecl :: TypeEnv -> Decl -> InferType TypeEnv
+inferDecl env decl = case decl of
   DFun fname ids exp -> do
-    let (newVar1, tvs') = getNewTypeVar tvs
-        (newVar2, tvs'') = getNewTypeVar tvs'
-        fun = TFun newVar1 newVar2
+    newVar1 <- getNewTypeVar
+    newVar2 <- getNewTypeVar
+    let fun = TFun newVar1 newVar2
         env' = Map.delete fname env
     case (newVar1, newVar2) of
       (TVar id1, TVar id2) -> do
         let env'' = Map.insert fname (TypeScheme [id1, id2] fun) env'
-        (texp1, sub1, tvs''') <- infer env'' tvs'' (ELam ids exp)
+        (texp1, sub1) <- infer env'' (ELam ids exp)
         sub2  <- unify (instType sub1 fun) (trace (show texp1) (texp1))
         return $ instTypeEnv (composeSubst sub2 sub1) env''
-      _                    -> Bad "Internal type checker error"
+      _  -> fail "Internal type checker error"
 
-checkTypesStmt :: TypeEnv -> Stmt -> Err TypeEnv
+checkTypesStmt :: TypeEnv -> Stmt -> InferType TypeEnv
 checkTypesStmt env stmt = case stmt of
   SExp exp -> do
-    (t, s, tvs) <- infer env newTypeVarSupplier exp
+    (t, s) <- infer env exp
     return $ trace (show t) (env)
-  DExp decl -> inferDecl env newTypeVarSupplier decl
+  DExp decl -> inferDecl env decl
 
 checkTypes :: Program -> Err TypeEnv
 checkTypes x = case x of
   Prog stmts ->
-    foldM (\x y -> checkTypesStmt x y) (emptyTypeEnv) stmts
+    foldM (\x y -> runInferType $ checkTypesStmt x y) (emptyTypeEnv) stmts
