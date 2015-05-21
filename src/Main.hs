@@ -9,10 +9,12 @@ import Control.Monad.State
 import Data.Map as Map
 import ErrM
 
+main :: IO ()
 main = do
   interact iterpret
   putStrLn ""
 
+iterpret :: String -> String
 iterpret s =
   let p = pProgram (myLexer s)
   in case p of
