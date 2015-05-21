@@ -11,13 +11,14 @@ separator nonempty Exp "";
 
 -- Statements
 SExp.    Stmt  ::= Exp;
-SDecl.   Stmt  ::= Decl;
+SDecl.   Stmt  ::= "let" Decl;
 
 -- Declarations
-DFun.    Decl  ::= "fun" Ident [Ident] "=" Exp;
+DFun.    Decl  ::= Ident [Ident] "=" Exp;
+DVal.    Decl  ::= Ident "=" Exp;
 
 -- Expressions
-ELet.    Exp   ::= "let" Ident "=" Exp "in" "{" Exp "}";
+ELet.    Exp   ::= "let" Decl "in" "{" Exp "}";
 EIf.     Exp   ::= "if" Exp "then" Exp "else" Exp "endif";
 ELam.    Exp   ::= "lam" [Ident] "->" "{" Exp "}";
 ELog.    Exp   ::= Exp LogOpr Exp1;

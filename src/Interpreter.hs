@@ -57,15 +57,21 @@ transDecl x = case x of
     let fun = VNFun id $ Fun args exp oldEnv
     modify (Map.insert id fun)
     return $ Ok $ fun
+  DVal id exp -> do
+    e1 <- transExp exp
+    case e1 of
+      Ok e1' -> do
+        modify (Map.insert id e1')
+        return e1
+      Bad m -> return $ Bad m
 
 transExp :: Exp -> Eval
 transExp x = case x of
-  ELet id exp1 exp2  -> do
-    e1 <- transExp exp1
+  ELet decl exp2  -> do
+    oldEnv <- get
+    e1 <- transDecl decl
     case e1 of
       Ok e1' -> do
-        oldEnv <- get
-        modify (Map.insert id e1')
         result <- transExp exp2
         put oldEnv
         return result

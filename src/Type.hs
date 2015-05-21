@@ -122,12 +122,9 @@ unify t1 t2
 
 infer :: TypeEnv -> Exp -> InferType (Type, Subst)
 infer env exp = case exp of
-  ELet id exp1 exp2 -> do
-    (texp1, sub1) <- infer env exp1
-    let env' = Map.delete id env
-        ts' = TypeScheme (Set.toList (Set.difference (ftvEnv (instTypeEnv sub1 env)) (ftvEnv env))) texp1
-        env'' = Map.insert id ts' env'
-    (texp2, sub2) <- infer (instTypeEnv sub1 env'') exp2
+  ELet decl exp2 -> do
+    (env', sub1) <- inferDecl env decl
+    (texp2, sub2) <- infer env' exp2
     return (texp2, composeSubst sub2 sub1)
   EIf cond exp1 exp2 -> do
     (tcond, sub) <- infer env cond
@@ -187,7 +184,7 @@ inferBinOp env exp1 exp2 t = do
   let sub = composeSubsts [sub4, sub3, sub2, sub1]
   return (t, sub)
 
-inferDecl :: TypeEnv -> Decl -> InferType TypeEnv
+inferDecl :: TypeEnv -> Decl -> InferType (TypeEnv, Subst)
 inferDecl env decl = case decl of
   DFun fname ids exp -> do
     newVar1 <- getNewTypeVar
@@ -198,16 +195,25 @@ inferDecl env decl = case decl of
       (TVar id1, TVar id2) -> do
         let env'' = Map.insert fname (TypeScheme [id1, id2] fun) env'
         (texp1, sub1) <- infer env'' (ELam ids exp)
-        sub2  <- unify (instType sub1 fun) (trace (show texp1) (texp1))
-        return $ instTypeEnv (composeSubst sub2 sub1) env''
+        sub2  <- unify (instType sub1 fun) texp1
+        let sub = (composeSubst sub2 sub1)
+        return $ (instTypeEnv sub env'', sub)
       _  -> fail "Internal type checker error"
+  DVal id exp -> do
+    (texp1, sub1) <- infer env exp
+    let env' = Map.delete id env
+        ts' = TypeScheme (Set.toList (Set.difference (ftvEnv (instTypeEnv sub1 env)) (ftvEnv env))) texp1
+        env'' = Map.insert id ts' env'
+    return (instTypeEnv sub1 env'', sub1)
 
 checkTypesStmt :: TypeEnv -> Stmt -> InferType TypeEnv
 checkTypesStmt env stmt = case stmt of
   SExp exp -> do
     (t, s) <- infer env exp
-    return $ trace (show t) (env)
-  SDecl decl -> inferDecl env decl
+    return env
+  SDecl decl -> do
+     (e, s) <- inferDecl env decl
+     return e
 
 checkTypes :: Program -> Err TypeEnv
 checkTypes x = case x of
