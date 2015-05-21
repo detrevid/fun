@@ -1,3 +1,4 @@
+{-# LANGUAGE GADTs #-}
 module Interpreter where
 
 import AbsFun
@@ -120,28 +121,38 @@ transLogOpr x a b = case (x, a, b) of
   (OAnd, VBool v1, VBool v2) -> success $ VBool $ v1 && v2
   _                          -> failure (x, a, b)
 
+evalEqOpr :: Eq a => EqOpr -> a -> a -> Bool
+evalEqOpr opr = case opr of
+  OEq -> (==)
+  ONeq -> (/=)
 
 transEqOpr :: EqOpr -> Value -> Value -> Result
-transEqOpr x a b = case (x, a, b) of
-  (OEq, VBool v1, VBool v2)  -> success $ VBool $ v1 == v2
-  (ONeq, VBool v1, VBool v2) -> success $ VBool $ v1 /= v2
-  (OEq, VInt v1, VInt v2)    -> success $ VBool $ v1 == v2
-  (ONeq, VInt v1, VInt v2)   -> success $ VBool $ v1 /= v2
-  _                          -> failure (x, a, b)
+transEqOpr opr a b = case (a, b) of
+  (VBool v1, VBool v2)  -> success $ VBool $ (evalEqOpr opr) v1 v2
+  (VInt v1, VInt v2)    -> success $ VBool $ (evalEqOpr opr) v1 v2
+  _                     -> failure (a, b)
+
+evalRelOpr :: RelOpr -> Integer -> Integer -> Bool
+evalRelOpr opr = case opr of
+  OLes -> (<)
+  OGrt -> (>)
+  OLeq -> (<=)
+  OGeq -> (>=)
 
 transRelOpr :: RelOpr -> Value -> Value -> Result
-transRelOpr x a b = case (x, a, b) of
-  (OLes, VInt v1, VInt v2) -> success $ VBool $ v1 < v2
-  (OGrt, VInt v1, VInt v2) -> success $ VBool $ v1 > v2
-  (OLeq, VInt v1, VInt v2) -> success $ VBool $ v1 <= v2
-  (OGeq, VInt v1, VInt v2) -> success $ VBool $ v1 >= v2
-  _                        -> failure (x, a, b)
+transRelOpr opr a b = case (a, b) of
+  (VInt v1, VInt v2) -> success $ VBool $ (evalRelOpr opr) v1 v2
+  _                  -> failure (a, b)
+
+evalAddOpr :: AddOpr -> Integer -> Integer -> Integer
+evalAddOpr opr = case opr of
+  OAdd -> (+)
+  OSub -> (-)
 
 transAddOpr :: AddOpr -> Value -> Value -> Result
-transAddOpr x a b = case (x, a, b) of
-  (OAdd, VInt v1, VInt v2) -> success $ VInt $ v1 + v2
-  (OSub, VInt v1, VInt v2) -> success $ VInt $ v1 - v2
-  _                        -> failure (x, a, b)
+transAddOpr opr a b = case (a, b) of
+  (VInt v1, VInt v2) -> success $ VInt $ (evalAddOpr opr) v1 v2
+  _                  -> failure (opr, a, b)
 
 transMulOpr :: MulOpr -> Value -> Value -> Result
 transMulOpr x a b = case (x, a, b) of
@@ -149,7 +160,7 @@ transMulOpr x a b = case (x, a, b) of
   (ODiv, VInt v1, VInt v2) ->
     if v2 /= 0 then success $ VInt $ v1 `quot` v2
                else Bad $ "Division by zero"
-  _                        -> failure (x, a, b)
+  _                       -> failure (x, a, b)
 
 transLam :: [Ident] -> Exp -> Env -> Result
 transLam args exp env = do
