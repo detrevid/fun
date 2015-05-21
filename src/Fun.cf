@@ -11,7 +11,7 @@ separator nonempty Exp "";
 
 -- Statements
 SExp.    Stmt  ::= Exp;
-DExp.    Stmt  ::= Decl;
+SDecl.   Stmt  ::= Decl;
 
 -- Declarations
 DFun.    Decl  ::= "fun" Ident [Ident] "=" Exp;

@@ -48,7 +48,7 @@ transProgram x = do
 transStmt :: Stmt -> Eval
 transStmt x = case x of
   SExp exp  -> transExp exp
-  DExp decl  -> transDecl decl
+  SDecl decl  -> transDecl decl
 
 transDecl :: Decl -> Eval
 transDecl x = case x of

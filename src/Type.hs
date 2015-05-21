@@ -207,7 +207,7 @@ checkTypesStmt env stmt = case stmt of
   SExp exp -> do
     (t, s) <- infer env exp
     return $ trace (show t) (env)
-  DExp decl -> inferDecl env decl
+  SDecl decl -> inferDecl env decl
 
 checkTypes :: Program -> Err TypeEnv
 checkTypes x = case x of
