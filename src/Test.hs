@@ -14,7 +14,6 @@ import System.Exit (exitFailure)
 
 doTest :: String -> IO Bool
 doTest testName = do
-  --putStrLn $ "TEST: " ++ testName
   let inTestName  = testName ++ ".in"
       outTestName = testName ++ ".out"
   inT  <- readFile inTestName
