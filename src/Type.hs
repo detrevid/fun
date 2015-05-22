@@ -99,7 +99,7 @@ instType sub t = case t of
 -- instance typeScheme
 instTypeScheme :: Subst -> TypeScheme -> TypeScheme
 instTypeScheme sub ts = case ts of
-  TypeScheme ids t -> TypeScheme ids $ instType (foldr Map.delete sub ids) t
+  TypeScheme ids t -> TypeScheme (filter (flip Map.member sub) ids) $ instType sub t
 
 instTypeEnv :: Subst -> TypeEnv -> TypeEnv
 instTypeEnv sub env = Map.map (instTypeScheme sub) env
@@ -131,7 +131,7 @@ infer env exp = case exp of
     let env' = instTypeEnv sub env
     (texp1, sub1) <- infer env' exp1
     (texp2, sub2) <- infer (instTypeEnv sub1 env') exp2
-    sub3          <- unify texp1 texp2
+    sub3 <- unify texp1 texp2
     return (instType sub3 texp2, composeSubsts [sub3, sub2, sub1, sub])
   ELog exp1 logopr exp2  -> inferBinOp env exp1 exp2 typeBool
   EEq exp1 eqopr exp2 -> do
