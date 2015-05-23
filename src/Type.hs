@@ -9,6 +9,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 
 import Control.Monad
+import Control.Applicative (Applicative)
 import Control.Monad.Trans.State
 import Debug.Trace
 
@@ -40,7 +41,7 @@ newTypeVarSupplier :: TypeVarSupplier
 newTypeVarSupplier = TypeVarSupplier [ "t" ++ show n | n <- [1..]]
 
 newtype InferType a = InferType (StateT TypeVarSupplier Err a)
-  deriving (Functor, Monad)
+  deriving (Functor, Applicative, Monad)
 
 getNewTypeVar :: InferType Type
 getNewTypeVar = InferType $ state getNewTypeVar'
