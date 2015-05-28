@@ -34,8 +34,7 @@ type TypeEnv = Map.Map Ident TypeScheme
 data TypeVarSupplier = TypeVarSupplier [String]
 
 getNewTypeVar' :: TypeVarSupplier -> (Type, TypeVarSupplier)
-getNewTypeVar' (TypeVarSupplier ids) =
-  (TVar $ Ident $ head ids, TypeVarSupplier $ tail ids)
+getNewTypeVar' (TypeVarSupplier ids) = (TVar $ Ident $ head ids, TypeVarSupplier $ tail ids)
 
 newTypeVarSupplier :: TypeVarSupplier
 newTypeVarSupplier = TypeVarSupplier [ "t" ++ show n | n <- [1..]]
@@ -80,7 +79,7 @@ composeSubsts = foldl composeSubst idSub
 
 ftv :: Type -> Set.Set Ident
 ftv t = case t of
-  TInner _    -> Set.empty
+  TInner _   -> Set.empty
   TVar id    -> Set.singleton id
   TFun t1 t2 -> Set.union (ftv t1) (ftv t2)
 
@@ -100,33 +99,36 @@ instType sub t = case t of
 -- instance typeScheme
 instTypeScheme :: Subst -> TypeScheme -> TypeScheme
 instTypeScheme sub ts = case ts of
-  TypeScheme ids t -> TypeScheme (filter (flip Map.member sub) ids) $ instType sub t
+  TypeScheme ids t -> TypeScheme ids $ instType (foldr Map.delete sub ids) t
 
 instTypeEnv :: Subst -> TypeEnv -> TypeEnv
 instTypeEnv sub env = Map.map (instTypeScheme sub) env
+
+generalize :: TypeEnv -> Type -> TypeScheme
+generalize env t = TypeScheme (Set.toList (Set.difference (ftv t) (ftvEnv env))) t
 
 unify :: Monad m => Type -> Type -> m Subst
 unify t1 t2
   | t1 == t2  =  return idSub
   | otherwise = do
-    let errMsg = "Could not unify types: " ++ show t1 ++ show t2
+    let errMsg = "Could not unify types: " ++ show t1  ++ " " ++ show t2
         unifyVar id t = if Set.member id $ ftv t then fail errMsg
-                                                 else return (Map.singleton id t)
+                                                 else return $ Map.singleton id t
     case (t1, t2) of
       (TVar id, _)           -> unifyVar id t2
       (_, TVar id)           -> unifyVar id t1
       (TFun x y, TFun x' y') -> do
         s1 <- unify x x'
         s2 <- unify (instType s1 y) (instType s1 y')
-        return $ composeSubst s1 s2
-      (_, _)                 -> fail errMsg
+        return $ composeSubst s2 s1
+      _                      -> fail errMsg
 
 infer :: TypeEnv -> Exp -> InferType (Type, Subst)
 infer env exp = case exp of
-  ELet decl exp2 -> do
+  ELet decl exp -> do
     (env', sub1) <- inferDecl env decl
-    (texp2, sub2) <- infer env' exp2
-    return (texp2, composeSubst sub2 sub1)
+    (texp, sub2) <- infer env' exp
+    return (texp, composeSubst sub2 sub1)
   EIf cond exp1 exp2 -> do
     (tcond, sub) <- infer env cond
     let env' = instTypeEnv sub env
@@ -194,18 +196,19 @@ inferDecl env decl = case decl of
         env' = Map.delete fname env
     case (newVar1, newVar2) of
       (TVar id1, TVar id2) -> do
-        let env'' = Map.insert fname (TypeScheme [id1, id2] fun) env'
+        let env'' = Map.insert fname (TypeScheme [] fun) env'
         (texp1, sub1) <- infer env'' (ELam ids exp)
         sub2  <- unify (instType sub1 fun) texp1
         let sub = (composeSubst sub2 sub1)
-        return $ (instTypeEnv sub env'', sub)
+            env''' =  Map.insert fname (generalize env' (instType sub fun)) env'
+        return (instTypeEnv sub env''', sub)
       _  -> fail "Internal type checker error"
   DVal id exp -> do
-    (texp1, sub1) <- infer env exp
+    (texp, sub) <- infer env exp
     let env' = Map.delete id env
-        ts' = TypeScheme (Set.toList (Set.difference (ftvEnv (instTypeEnv sub1 env)) (ftvEnv env))) texp1
+        ts' = generalize env texp
         env'' = Map.insert id ts' env'
-    return (instTypeEnv sub1 env'', sub1)
+    return (instTypeEnv sub env'', sub)
 
 checkTypesStmt :: TypeEnv -> Stmt -> InferType TypeEnv
 checkTypesStmt env stmt = case stmt of
