@@ -32,11 +32,11 @@ testsPath = "examples/"
 egPref = "eg"
 goodTestsPath = testsPath ++ "good/"
 badTestsPath = testsPath ++ "bad/"
-goodTests = [ goodTestsPath ++ egPref ++ show n | n <- [1..13] ]
-badTests = [ badTestsPath ++ egPref ++ show n | n <- [1..6] ]
+goodTests = [ goodTestsPath ++ egPref ++ show n | n <- [1..16] ]
+badTests = [ badTestsPath ++ egPref ++ show n | n <- [1..9] ]
 
 main = do
   tests <- mapM doTest (goodTests ++ badTests)
   let evalTest (nr, ans) = if ans then trace ("Test " ++ show nr ++ ": OK") False
-                                  else trace ("Test " ++ show nr ++ ": Fail") True
+                                  else trace ("Test " ++ show nr ++ ": FAIL") True
   when (any evalTest (zip [1..] tests)) exitFailure

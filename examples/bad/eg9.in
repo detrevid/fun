@@ -1,0 +1,1 @@
+let f = lam a -> { lam b -> { b $ (a $ (a $ b)) } } in { f };

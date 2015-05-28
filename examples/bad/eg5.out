@@ -1,1 +1,1 @@
-Bad "Could not unify types: TInner IntTInner Bool"
+Bad "Could not unify types: TInner Int TInner Bool"
