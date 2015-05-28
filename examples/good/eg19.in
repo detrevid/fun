@@ -1,0 +1,7 @@
+let abs x = if x >= 0 then x else x - (2 * x) endif;
+let dist p1 p2 = (abs $ (p1.x - p2.x)) + (abs $ (p1.y - p2.y));
+
+let a = { x = 12, y = 20 };
+let b = { x = 15, y = 30 };
+
+dist $ a $ b;

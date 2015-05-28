@@ -17,6 +17,7 @@ data Value
   | VBool Bool
   | VFun Fun
   | VNFun Ident Fun
+  | VRec Env
   deriving (Eq)
 
 data Fun = Fun { args :: [Ident], exp :: Exp, env :: Env } deriving (Eq)
@@ -37,6 +38,7 @@ instance Show Value where
     VBool b -> show b
     VFun _ -> show "Unnamed function"
     VNFun (Ident id) _ -> show "Function: " ++ show id
+    VRec env -> "{" ++ show env ++ "}"
 
 transProgram :: Program -> Result
 transProgram x = do
@@ -93,6 +95,20 @@ transExp x = case x of
     v <- transLam args exp
     return $ v
   EApp exp1 exp2  -> transApp exp1 exp2
+  ERec decls  -> do
+    vals <-  mapM transDecl decls
+    let ids = map (\x -> case x of
+           DFun id _ _ -> id
+           DVal id _ -> id) decls
+        env = Map.fromList $ zip ids vals
+    return $ VRec env
+  EDot exp id -> do
+    e <- transExp exp
+    case e of
+      VRec env1 -> case Map.lookup id env1 of
+        Just v   -> return v
+        Nothing  -> fail internalErrMsg
+      _        -> fail internalErrMsg
 
 evalBinOpExp :: (Value -> Value -> Eval) -> Exp -> Exp -> Eval
 evalBinOpExp op exp1 exp2 = do
