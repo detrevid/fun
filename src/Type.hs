@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Type where
+module Type (checkTypes) where
 
 import AbsFun
 import ErrM

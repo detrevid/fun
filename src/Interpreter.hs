@@ -1,7 +1,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Interpreter where
+module Interpreter (transProgram) where
 
 import AbsFun
 import ErrM
