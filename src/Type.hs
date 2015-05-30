@@ -30,8 +30,8 @@ typeInt = TInner Int
 typeBool :: Type
 typeBool = TInner Bool
 
-internalErrorMsg :: String
-internalErrorMsg = "Internal error"
+internalErrMsg :: String
+internalErrMsg = "Internal error during type checking phase"
 
 singletonRec :: Ident -> InferType Type
 singletonRec id = do
@@ -41,7 +41,7 @@ singletonRec id = do
 getVarId :: Type -> InferType Ident
 getVarId t = case t of
   TVar id -> return id
-  _       -> fail internalErrorMsg
+  _       -> fail internalErrMsg
 
 makeExtRec :: Type -> InferType Type
 makeExtRec t = case t of
@@ -49,7 +49,7 @@ makeExtRec t = case t of
     newVar <- getNewTypeVar
     id <- getVarId newVar
     return $ TExtRec env id
-  _    -> fail internalErrorMsg
+  _    -> fail internalErrMsg
 
 getField :: Type -> Ident -> InferType Type
 getField t id =
@@ -58,7 +58,7 @@ getField t id =
       Just ts -> instantAll ts
       Nothing -> fail $ "Record does not have field called: " ++ show id
     TExtRec env _ -> getField (TRec env) id
-    _        -> fail internalErrorMsg
+    _        -> fail internalErrMsg
 
 data TypeScheme = TypeScheme [Ident] Type deriving (Eq, Ord, Show)
 type Subst = Map.Map Ident Type
@@ -297,9 +297,9 @@ infer env exp = case exp of
 
 inferLit :: TypeEnv -> Literal -> InferType (Type, Subst)
 inferLit env x = case x of
-  LTrue   -> return (typeBool, idSub)
-  LFalse  -> return (typeBool, idSub)
-  LInt _  -> return (typeInt, idSub)
+  LTrue      -> return (typeBool, idSub)
+  LFalse     -> return (typeBool, idSub)
+  LInt _     -> return (typeInt, idSub)
   LRec decls -> do
      (env', inferedExps) <- foldrM (\decl (e, infs) -> do
        inf@(texp, sub, e') <- inferDecl e decl
@@ -312,6 +312,7 @@ inferLit env x = case x of
            DVal id _ -> id) decls
          typeEnv = Map.fromList (zip ids texps')
      return (TRec typeEnv, sub)
+  _         -> fail internalErrMsg
 
 inferBinOp :: TypeEnv -> Exp -> Exp -> Type -> InferType (Type, Subst)
 inferBinOp env exp1 exp2 t = do

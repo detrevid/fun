@@ -8,6 +8,7 @@ comment "#";
 terminator Stmt ";" ;
 separator nonempty Ident "";
 separator nonempty Decl ",";
+separator nonempty Exp ",";
 
 -- Statements
 SExp.    Stmt  ::= Exp;
@@ -40,6 +41,7 @@ LInt.    Literal ::= Integer;
 LTrue.	 Literal ::= "true";
 LFalse.	 Literal ::= "false";
 LRec.    Literal ::= "{" [Decl] "}";
+LTup.    Literal ::= "(" Exp "," [Exp] ")";
 
 -- Operators
 -- Logical Operators
