@@ -13,7 +13,6 @@ import Control.Applicative (Applicative)
 import Control.Monad.Trans.State
 import Data.Foldable (foldrM)
 import Debug.Trace
---import MonadUtils (mapAccumLM)
 
 data Type = TInner Inner
           | TVar Ident
@@ -252,7 +251,7 @@ infer env exp = case exp of
     ts <- lookupTypeEnv env id
     t <- instantAll ts
     return (t, idSub)
-  EConst const -> return (inferConst const, idSub)
+  ELit lit -> inferLit env lit
   ELam args exp1 -> case args of
     h:t -> do
       newVar <- getNewTypeVar
@@ -267,18 +266,6 @@ infer env exp = case exp of
     (texp2, sub2) <- infer (instTypeEnv sub1 env) exp2
     sub3 <- unify (instType sub2 texp1) (TFun texp2 newVar)
     return (instType sub3 newVar, composeSubsts [sub3, sub2, sub1])
-  ERec decls -> do
-     (env', inferedExps) <- foldrM (\decl (e, infs) -> do
-       inf@(texp, sub, e') <- inferDecl e decl
-       return (e', ((texp, sub) : infs))) (env, []) decls
-     let (texps, subs) = unzip inferedExps
-         sub = composeSubsts subs
-         texps' = map (instTypeScheme sub) texps
-         ids = map (\x -> case x of
-           DFun id _ _ -> id
-           DVal id _ -> id) decls
-         typeEnv = Map.fromList (zip ids texps')
-     return (TRec typeEnv, sub)
   EDot exp1 id -> do
     (texp1, sub1) <- infer env exp1
     idRec <- singletonRec id
@@ -308,11 +295,23 @@ infer env exp = case exp of
         t = instType sub5 extExp1'
     return (t, sub')
 
-inferConst :: Constant -> Type
-inferConst x = case x of
- CTrue   -> typeBool
- CFalse  -> typeBool
- CInt _  -> typeInt
+inferLit :: TypeEnv -> Literal -> InferType (Type, Subst)
+inferLit env x = case x of
+  LTrue   -> return (typeBool, idSub)
+  LFalse  -> return (typeBool, idSub)
+  LInt _  -> return (typeInt, idSub)
+  LRec decls -> do
+     (env', inferedExps) <- foldrM (\decl (e, infs) -> do
+       inf@(texp, sub, e') <- inferDecl e decl
+       return (e', ((texp, sub) : infs))) (env, []) decls
+     let (texps, subs) = unzip inferedExps
+         sub = composeSubsts subs
+         texps' = map (instTypeScheme sub) texps
+         ids = map (\x -> case x of
+           DFun id _ _ -> id
+           DVal id _ -> id) decls
+         typeEnv = Map.fromList (zip ids texps')
+     return (TRec typeEnv, sub)
 
 inferBinOp :: TypeEnv -> Exp -> Exp -> Type -> InferType (Type, Subst)
 inferBinOp env exp1 exp2 t = do

@@ -22,7 +22,6 @@ ELet.    Exp   ::= "let" Decl "in" "{" Exp "}";
 EIf.     Exp   ::= "if" Exp "then" Exp "else" Exp "endif";
 ELam.    Exp   ::= "lam" [Ident] "->" "{" Exp "}";
 ELog.    Exp   ::= Exp LogOpr Exp1;
-ERec.    Exp   ::= "{" [Decl] "}";
 EEq.     Exp1  ::= Exp1 EqOpr Exp2;
 ERel.    Exp2  ::= Exp2 RelOpr Exp3;
 EAdd.    Exp3  ::= Exp3 AddOpr Exp4;
@@ -31,15 +30,16 @@ ENeg.    Exp5  ::= "not" Exp6;
 ESum.    Exp6  ::= Exp7 "&" Exp7;
 EApp.    Exp7  ::= Exp7 "$" Exp8;
 EDot.    Exp8  ::= Exp9 "." Ident;
-EConst.  Exp9  ::= Constant;
+ELit.    Exp9  ::= Literal;
 EVal.    Exp9  ::= Ident;
 
 coercions Exp 9;
 
 -- Constant
-CInt.    Constant ::= Integer;
-CTrue.	 Constant ::= "true";
-CFalse.	 Constant ::= "false";
+LInt.    Literal ::= Integer;
+LTrue.	 Literal ::= "true";
+LFalse.	 Literal ::= "false";
+LRec.    Literal ::= "{" [Decl] "}";
 
 -- Operators
 -- Logical Operators

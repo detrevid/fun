@@ -90,18 +90,11 @@ transExp x = case x of
     case val of
       Just v -> return v
       Nothing -> fail internalErrMsg
-  EConst const  -> transConstant const
+  ELit lit  -> transLiteral lit
   ELam args exp -> do
     v <- transLam args exp
     return $ v
   EApp exp1 exp2  -> transApp exp1 exp2
-  ERec decls  -> do
-    vals <-  mapM transDecl decls
-    let ids = map (\x -> case x of
-           DFun id _ _ -> id
-           DVal id _ -> id) decls
-        env = Map.fromList $ zip ids vals
-    return $ VRec env
   EDot exp id -> do
     e <- transExp exp
     case e of
@@ -131,11 +124,18 @@ evalNeg exp = do
     VBool b -> return $ VBool $ not b
     _       -> fail internalErrMsg
 
-transConstant :: Constant -> Eval
-transConstant x = case x of
-  CTrue   -> return $ VBool True
-  CFalse  -> return $ VBool False
-  CInt n  -> return $ VInt n
+transLiteral :: Literal -> Eval
+transLiteral x = case x of
+  LTrue   -> return $ VBool True
+  LFalse  -> return $ VBool False
+  LInt n  -> return $ VInt n
+  LRec decls  -> do
+    vals <-  mapM transDecl decls
+    let ids = map (\x -> case x of
+           DFun id _ _ -> id
+           DVal id _ -> id) decls
+        env = Map.fromList $ zip ids vals
+    return $ VRec env
 
 
 transLogOpr :: LogOpr -> Value -> Value -> Eval
