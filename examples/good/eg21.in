@@ -1,0 +1,10 @@
+let abs x = if x >= 0 then x else x - (2 * x) endif;
+let dist p1 p2 = (abs $ (p1.x - p2.x)) + (abs $ (p1.y - p2.y));
+let f x y z  = if x.z then (if not y.z then dist $ x $ y + dist $ x $ y + z.u else 3 endif) else 2 endif;
+
+let a = { x = 12, y = 20, z = true };
+let b = { x = 15, z = true };
+let c = { u = 14 };
+let d = { y = 30, z = false,  w = false };
+
+f $ a $ (b & d) $ c;

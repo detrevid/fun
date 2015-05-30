@@ -136,6 +136,7 @@ instType sub t = case t of
         instId = instType sub $ TVar id in
     case instId of
      TExtRec env'' id' -> TExtRec (env' `Map.union` env'') id'
+     TRec env''        -> TRec (env' `Map.union` env'')
      TVar id'          -> TExtRec env' id'
      _                 -> TExtRec env' id
   _          -> t
@@ -184,7 +185,9 @@ unify t1 t2
             commEnv1 = Map.filterWithKey (\x _ -> Set.member x commKeys) env1
             diffEnv1 = Map.filterWithKey (\x _ -> Set.notMember x commKeys) env1
         sub1 <- unify (TRec commEnv1) (TRec env2)
-        sub2 <- unify (TVar id) (TRec $ instTypeEnv sub1 diffEnv1)
+        newVar <- getNewTypeVar
+        varId <- getVarId newVar
+        sub2 <- unify (TVar id) (TExtRec (instTypeEnv sub1 diffEnv1) varId)
         return $ composeSubst sub2 sub1
       (TExtRec _ _, TRec _) -> unify t2 t1
       (TExtRec env1 id1, TExtRec env2 id2) -> do
@@ -285,6 +288,25 @@ infer env exp = case exp of
         texp1' = instType sub texp1
     t <- getField texp1' id
     return (t, sub)
+  ESum exp1 exp2  -> do
+    (texp1, sub1) <- infer env exp1
+    (texp2, sub2) <- infer (instTypeEnv sub1 env) exp2
+    newVar1 <- getNewTypeVar
+    varId1 <- getVarId newVar1
+    newVar2 <- getNewTypeVar
+    varId2 <- getVarId newVar2
+    let extExp1 = TExtRec emptyTypeEnv varId1
+        extExp2 = TExtRec emptyTypeEnv varId2
+    sub3 <- unify (instType sub2 texp1) extExp1
+    sub4 <- unify (instType sub3 texp2) extExp2
+    let sub = composeSubsts [sub4, sub3, sub2, sub1]
+        extExp1' = instType sub extExp1
+        extExp2' = instType sub extExp2
+    sub5 <- unify extExp1' extExp2'
+    let sub' = composeSubst sub5 sub
+        texp1' = instType sub' texp1
+        t = instType sub5 extExp1'
+    return (t, sub')
 
 inferConst :: Constant -> Type
 inferConst x = case x of

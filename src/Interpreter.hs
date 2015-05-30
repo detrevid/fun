@@ -109,6 +109,13 @@ transExp x = case x of
         Just v   -> return v
         Nothing  -> fail internalErrMsg
       _        -> fail internalErrMsg
+  ESum exp1 exp2  -> do
+    e1 <- transExp exp1
+    e2 <- transExp exp2
+    case (e1, e2) of
+      (VRec env1, VRec env2) -> do
+        return $ VRec $ Map.union env2 env1
+      _                      -> fail internalErrMsg
 
 evalBinOpExp :: (Value -> Value -> Eval) -> Exp -> Exp -> Eval
 evalBinOpExp op exp1 exp2 = do

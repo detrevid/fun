@@ -28,12 +28,13 @@ ERel.    Exp2  ::= Exp2 RelOpr Exp3;
 EAdd.    Exp3  ::= Exp3 AddOpr Exp4;
 EMul.    Exp4  ::= Exp4 MulOpr Exp5;
 ENeg.    Exp5  ::= "not" Exp6;
-EApp.    Exp6  ::= Exp6 "$" Exp7;
-EConst.  Exp7  ::= Constant;
-EVal.    Exp7  ::= Ident;
-EDot.    Exp7  ::= Exp7 "." Ident;
+ESum.    Exp6  ::= Exp7 "&" Exp7;
+EApp.    Exp7  ::= Exp7 "$" Exp8;
+EDot.    Exp8  ::= Exp9 "." Ident;
+EConst.  Exp9  ::= Constant;
+EVal.    Exp9  ::= Ident;
 
-coercions Exp 7;
+coercions Exp 9;
 
 -- Constant
 CInt.    Constant ::= Integer;
