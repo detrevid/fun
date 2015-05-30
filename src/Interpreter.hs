@@ -6,6 +6,7 @@ module Interpreter (transProgram) where
 import AbsFun
 import ErrM
 import Type
+import Preparator
 
 import qualified Data.Map as Map
 import Debug.Trace
@@ -41,9 +42,10 @@ instance Show Value where
     VRec env -> "{" ++ show env ++ "}"
 
 transProgram :: Program -> Result
-transProgram x = do
-  checkTypes x
-  case x of
+transProgram p = do
+  p' <- prepareProgram p
+  checkTypes p'
+  case p' of
     Prog stmts -> do
       (v, _) <- foldM (\(_, env') y -> runStateT (transStmt y) env')  (VBool True, emptyEnv) stmts
       return v
