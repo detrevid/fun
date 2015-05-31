@@ -16,7 +16,18 @@ prepareStmt s = case s of
   SExp exp -> do
     preparedExp <- prepareExp exp
     return $ SExp $ preparedExp
-  _        -> return s
+  SDecl decl -> do
+    preparedDecl <- prepareDecl decl
+    return $ SDecl $ preparedDecl
+
+prepareDecl :: Decl -> Err Decl
+prepareDecl d = case d of
+  DFun id ids exp -> do
+    preparedExp <- prepareExp exp
+    return $ DFun id ids preparedExp
+  DVal id exp -> do
+    preparedExp <- prepareExp exp
+    return $  DVal id preparedExp
 
 prepareExp :: Exp -> Err Exp
 prepareExp exp = case exp of
