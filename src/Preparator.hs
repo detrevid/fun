@@ -81,4 +81,7 @@ prepareExp exp = case exp of
     let exps' = exp1 : exps
         decls = map (\(i, e) -> DVal (Ident i) e) (zip [ "e_" ++ show n | n <- [1..]] exps')
     return $ ELit $ LRec decls
+  EInv exp1 -> do
+     pexp1 <- prepareExp exp1
+     return $ EAdd (ELit $ LInt 0) OSub pexp1
   _ -> return exp

@@ -1,4 +1,4 @@
-let abs x = if x >= 0 then x else x - (2 * x) endif;
+let abs x = if x >= 0 then x else x * (-1) endif;
 let dist p1 p2 = (abs $ (p1.x - p2.x)) + (abs $ (p1.y - p2.y));
 let f x y z  = if x.z then (if not y.z then dist $ x $ y + dist $ x $ y + z.u else 3 endif) else 2 endif;
 

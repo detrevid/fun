@@ -28,7 +28,7 @@ type Env = Map.Map Ident Value
 type EvalM a = StateT.StateT Env Err a
 type Eval = EvalM Value
 
-internalErrMsg = "Internal error"
+internalErrMsg = "Internal error during interpreting phase"
 
 emptyEnv :: Env
 emptyEnv = Map.empty
@@ -111,6 +111,7 @@ transExp x = case x of
       (VRec env1, VRec env2) -> do
         return $ VRec $ Map.union env2 env1
       _                      -> fail internalErrMsg
+  _  -> fail internalErrMsg
 
 evalBinOpExp :: (Value -> Value -> Eval) -> Exp -> Exp -> Eval
 evalBinOpExp op exp1 exp2 = do

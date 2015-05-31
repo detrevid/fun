@@ -27,6 +27,7 @@ EEq.     Exp1  ::= Exp1 EqOpr Exp2;
 ERel.    Exp2  ::= Exp2 RelOpr Exp3;
 EAdd.    Exp3  ::= Exp3 AddOpr Exp4;
 EMul.    Exp4  ::= Exp4 MulOpr Exp5;
+EInv.    Exp5  ::= "-" Exp6;
 ENeg.    Exp5  ::= "not" Exp6;
 ESum.    Exp6  ::= Exp7 "&" Exp7;
 EApp.    Exp7  ::= Exp7 "$" Exp8;
