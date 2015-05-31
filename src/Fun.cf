@@ -7,7 +7,7 @@ comment "#";
 -- Terminators
 terminator Stmt ";" ;
 separator nonempty Ident "";
-separator nonempty Decl ",";
+separator Decl ",";
 separator nonempty Exp ",";
 
 -- Statements
@@ -29,9 +29,9 @@ EAdd.    Exp3  ::= Exp3 AddOpr Exp4;
 EMul.    Exp4  ::= Exp4 MulOpr Exp5;
 EInv.    Exp5  ::= "-" Exp6;
 ENeg.    Exp5  ::= "not" Exp6;
-ESum.    Exp6  ::= Exp7 "&" Exp7;
+ESum.    Exp6  ::= Exp6 "&" Exp7;
 EApp.    Exp7  ::= Exp7 "$" Exp8;
-EDot.    Exp8  ::= Exp9 "." Ident;
+EDot.    Exp8  ::= Exp8 "." Ident;
 ELit.    Exp9  ::= Literal;
 EVal.    Exp9  ::= Ident;
 
