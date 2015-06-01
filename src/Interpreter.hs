@@ -5,7 +5,7 @@ module Interpreter (transProgram) where
 
 import AbsFun
 import ErrM
-import Type
+import TypeChecker
 import Preparator
 
 import qualified Data.Map as Map
