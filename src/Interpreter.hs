@@ -76,7 +76,6 @@ transExp x = case x of
   ENeg exp  -> evalNeg exp
   EVal id -> do
     val <- gets (Map.lookup id)
-    traceM $ show val
     case val of
       Just v -> return v
       Nothing -> fail internalErrMsg

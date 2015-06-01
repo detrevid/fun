@@ -123,6 +123,7 @@ instType sub t = case t of
      TRec env''        -> TRec (env' `Map.union` env'')
      TVar id'          -> TExtRec env' id'
      _                 -> TExtRec env' id
+  TList t' -> TList $ instType sub t'
   _          -> t
 
 -- instance typeScheme

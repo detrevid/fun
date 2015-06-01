@@ -32,7 +32,7 @@ testsPath = "examples/"
 egPref = "eg"
 goodTestsPath = testsPath ++ "good/"
 badTestsPath = testsPath ++ "bad/"
-goodTests = [ goodTestsPath ++ egPref ++ show n | n <- [1..26] ]
+goodTests = [ goodTestsPath ++ egPref ++ show n | n <- [1..28] ]
 badTests = [ badTestsPath ++ egPref ++ show n | n <- [1..12] ]
 
 main = do
