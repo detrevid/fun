@@ -3,6 +3,7 @@
 module TypeChecker (checkTypes) where
 
 import AbsFun
+import BuiltIn
 import ErrM
 import Type
 
@@ -100,6 +101,7 @@ ftv t = case t of
   TFun t1 t2 -> Set.union (ftv t1) (ftv t2)
   TRec env   -> ftvEnv env
   TExtRec env id -> Set.union (ftv $ TRec env) (ftv $ TVar id)
+  TList t1   -> ftv t1
 
 ftvScheme :: TypeScheme -> Set.Set Ident
 ftvScheme (TypeScheme ids t) = Set.difference (ftv t) (Set.fromList ids)
@@ -360,5 +362,7 @@ checkTypesStmt env stmt = case stmt of
 
 checkTypes :: Program -> Err TypeEnv
 checkTypes x = case x of
-  Prog stmts ->
-    foldM (\x y -> runInferType $ checkTypesStmt x y) (emptyTypeEnv) stmts
+  Prog stmts -> do
+    let env = emptyTypeEnv
+    env' <- addBuiltInsToTypeEnv env
+    foldM (\x y -> runInferType $ checkTypesStmt x y) env' stmts

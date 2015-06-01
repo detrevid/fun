@@ -4,35 +4,18 @@
 module Interpreter (transProgram) where
 
 import AbsFun
+import BuiltIn
+import Debug.Trace
 import ErrM
-import TypeChecker
 import Preparator
+import TypeChecker
+import Value
 
 import qualified Data.Map as Map
-import Debug.Trace
 import Control.Monad.State
 import qualified Control.Monad.Trans.State as StateT
 
-data Value
-  = VInt Integer
-  | VBool Bool
-  | VFun Fun
-  | VNFun Ident Fun
-  | VRec Env
-  | VList [Value]
-  deriving (Eq)
-
-data Fun = Fun { args :: [Ident], exp :: Exp, env :: Env } deriving (Eq)
-
-type Result = Err Value
-type Env = Map.Map Ident Value
-type EvalM a = StateT.StateT Env Err a
-type Eval = EvalM Value
-
 internalErrMsg = "Internal error during interpreting phase"
-
-emptyEnv :: Env
-emptyEnv = Map.empty
 
 instance Show Value where
   show r = case r of
@@ -42,6 +25,7 @@ instance Show Value where
     VNFun (Ident id) _ -> show "Function: " ++ show id
     VRec env -> "{" ++ show env ++ "}"
     VList vals -> show vals
+    VBuiltIn f -> show "Built-in function"
 
 transProgram :: Program -> Result
 transProgram p = do
@@ -49,7 +33,8 @@ transProgram p = do
   checkTypes p'
   case p' of
     Prog stmts -> do
-      (v, _) <- foldM (\(_, env') y -> runStateT (transStmt y) env')  (VBool True, emptyEnv) stmts
+      env <- addBuiltInsToEnv emptyEnv
+      (v, _) <- foldM (\(_, env') y -> runStateT (transStmt y) env')  (VBool True, env) stmts
       return v
 
 transStmt :: Stmt -> Eval
@@ -91,6 +76,7 @@ transExp x = case x of
   ENeg exp  -> evalNeg exp
   EVal id -> do
     val <- gets (Map.lookup id)
+    traceM $ show val
     case val of
       Just v -> return v
       Nothing -> fail internalErrMsg
@@ -224,4 +210,7 @@ transApp exp1 exp2 = do
     VFun f' -> funApp f' exp2
     f'@(VNFun name (Fun args exp3 env)) ->
       funApp (Fun args exp3 (Map.insert name f' env)) exp2
+    VBuiltIn f' -> do
+      e2 <- transExp exp2
+      f' e2
     _     -> fail internalErrMsg
