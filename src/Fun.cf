@@ -43,6 +43,8 @@ LTrue.	 Literal ::= "true";
 LFalse.	 Literal ::= "false";
 LRec.    Literal ::= "{" [Decl] "}";
 LTup.    Literal ::= "(" Exp "," [Exp] ")";
+LList.   Literal ::= "[" [Exp] "]";
+LLEmpty. Literal ::= "[" "]";
 
 -- Operators
 -- Logical Operators

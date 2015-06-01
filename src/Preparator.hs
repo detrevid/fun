@@ -77,11 +77,24 @@ prepareExp exp = case exp of
     pexp1 <- prepareExp exp1
     return $ EDot pexp1 id
   EVal id  -> return $ EVal id
-  ELit (LTup exp1 exps) -> do
-    let exps' = exp1 : exps
-        decls = map (\(i, e) -> DVal (Ident i) e) (zip [ "e_" ++ show n | n <- [1..]] exps')
-    return $ ELit $ LRec decls
+  ELit lit -> do
+    preparedLit <- prepareLit lit
+    return $ ELit preparedLit
   EInv exp1 -> do
      pexp1 <- prepareExp exp1
      return $ EAdd (ELit $ LInt 0) OSub pexp1
-  _ -> return exp
+
+prepareLit :: Literal -> Err Literal
+prepareLit x = case x of
+  LRec decls     -> do
+    preparedDecls <- mapM prepareDecl decls
+    return $ LRec preparedDecls
+  LTup exp1 exps -> do
+    let exps' = exp1 : exps
+        decls = map (\(i, e) -> DVal (Ident i) e) (zip [ "e_" ++ show n | n <- [1..]] exps')
+    return $ LRec decls
+  LList exps     -> do
+    preparedExps <- mapM prepareExp exps
+    return $ LList preparedExps
+  LLEmpty -> return $ LList []
+  _              -> return x

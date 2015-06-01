@@ -19,6 +19,7 @@ data Type = TInner Inner
           | TFun Type Type
           | TRec TypeEnv
           | TExtRec TypeEnv Ident
+          | TList Type
   deriving (Eq, Ord, Show)
 
 data Inner = Bool
@@ -205,6 +206,7 @@ unify t1 t2
         varId2 <- getVarId newVar2
         sub3 <- unify (TVar id2) (TExtRec (instTypeEnv (composeSubst sub2 sub1) diffEnv1) varId2)
         return $ composeSubsts [sub3, sub2, sub1]
+      (TList t1', TList t2') -> unify t1' t2'
       _                      -> fail errMsg
 
 unifyTypeSchemes :: TypeScheme -> TypeScheme -> InferType Subst
@@ -275,7 +277,7 @@ infer env exp = case exp of
         texp1' = instType sub texp1
     t <- getField texp1' id
     return (t, sub)
-  ESum exp1 exp2  -> do
+  ESum exp1 exp2 -> do
     (texp1, sub1) <- infer env exp1
     (texp2, sub2) <- infer (instTypeEnv sub1 env) exp2
     newVar1 <- getNewTypeVar
@@ -295,6 +297,7 @@ infer env exp = case exp of
         t = instType sub5 extExp1'
     return (t, sub')
 
+
 inferLit :: TypeEnv -> Literal -> InferType (Type, Subst)
 inferLit env x = case x of
   LTrue      -> return (typeBool, idSub)
@@ -302,7 +305,7 @@ inferLit env x = case x of
   LInt _     -> return (typeInt, idSub)
   LRec decls -> do
      (env', inferedExps) <- foldrM (\decl (e, infs) -> do
-       inf@(texp, sub, e') <- inferDecl e decl
+       (texp, sub, e') <- inferDecl e decl
        return (e', ((texp, sub) : infs))) (env, []) decls
      let (texps, subs) = unzip inferedExps
          sub = composeSubsts subs
@@ -312,7 +315,24 @@ inferLit env x = case x of
            DVal id _ -> id) decls
          typeEnv = Map.fromList (zip ids texps')
      return (TRec typeEnv, sub)
-  _         -> fail internalErrMsg
+  LList exps -> do
+    (env', inferedExps) <- foldrM (\exp (e, infs) -> do
+       inf@(_, sub) <- infer e exp
+       return ((instTypeEnv sub e), (inf : infs))) (env, []) exps
+    let (texps, subs) = unzip inferedExps
+        sub = composeSubsts subs
+        texps' = map (instType sub) texps
+    case texps' of
+      h:t  -> do
+        sub' <- foldrM (\tp s -> do
+         s' <- unify h tp
+         return $ composeSubst s' s) idSub t
+        let sub'' = composeSubst sub' sub
+        return (TList $ instType sub'' h, sub'')
+      []   -> do
+        newVar <- getNewTypeVar
+        return (TList $ newVar, idSub)
+  _          -> fail internalErrMsg
 
 inferBinOp :: TypeEnv -> Exp -> Exp -> Type -> InferType (Type, Subst)
 inferBinOp env exp1 exp2 t = do
