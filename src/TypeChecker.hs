@@ -128,8 +128,7 @@ instType sub t = case t of
 
 -- instance typeScheme
 instTypeScheme :: Subst -> TypeScheme -> TypeScheme
-instTypeScheme sub ts = case ts of
-  TypeScheme ids t -> TypeScheme ids $ instType (foldr Map.delete sub ids) t
+instTypeScheme sub (TypeScheme ids t) = TypeScheme ids $ instType (foldr Map.delete sub ids) t
 
 instTypeEnv :: Subst -> TypeEnv -> TypeEnv
 instTypeEnv sub env = Map.map (instTypeScheme sub) env

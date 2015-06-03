@@ -1,0 +1,1 @@
+let f = lam x -> { true } in { head $ [1765, 2, 3] };

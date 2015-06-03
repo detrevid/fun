@@ -1,0 +1,1 @@
+let f x = (let g y = x + y in { let h x = g $ x in { h $ 10 } }) in { f $ 5 };
