@@ -1,0 +1,1 @@
+let fib n = if n $ 4 then fib $ 5 else 1 endif;

@@ -209,7 +209,7 @@ infer env exp = case exp of
   EIf cond exp1 exp2 -> do
     (tcond, sub1) <- infer env cond
     sub2 <- unify tcond typeBool
-    let env' = instTypeEnv (composeSubst sub1 sub2) env
+    let env' = instTypeEnv (composeSubst sub2 sub1) env
     (texp1, sub3) <- infer env' exp1
     (texp2, sub4) <- infer (instTypeEnv sub3 env') exp2
     let sub = composeSubsts [sub4, sub3, sub2, sub1]
@@ -232,7 +232,7 @@ infer env exp = case exp of
   ENeg exp1 -> do
     (texp, sub1) <- infer env exp1
     sub2 <- unify texp typeBool
-    return (typeBool, sub2)
+    return (typeBool, composeSubst sub2 sub1)
   EVal id -> do
     ts <- lookupTypeEnv env id
     t <- instantAll ts

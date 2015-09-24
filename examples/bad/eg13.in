@@ -1,0 +1,3 @@
+let fib n = if not (n < 2) then fib $ true else 1 endif;
+
+fib $ true;

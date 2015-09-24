@@ -33,7 +33,7 @@ egPref = "eg"
 goodTestsPath = testsPath ++ "good/"
 badTestsPath = testsPath ++ "bad/"
 goodTests = [ goodTestsPath ++ egPref ++ show n | n <- [1..30] ]
-badTests = [ badTestsPath ++ egPref ++ show n | n <- [1..12] ]
+badTests = [ badTestsPath ++ egPref ++ show n | n <- [1..14] ]
 
 main = do
   tests <- mapM doTest (goodTests ++ badTests)
