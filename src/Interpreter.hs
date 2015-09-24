@@ -29,13 +29,11 @@ instance Show Value where
 
 transProgram :: Program -> Result
 transProgram p = do
-  p' <- prepareProgram p
+  p'@(Prog stmts) <- prepareProgram p
   checkTypes p'
-  case p' of
-    Prog stmts -> do
-      env <- addBuiltInsToEnv emptyEnv
-      (v, _) <- foldM (\(_, env') y -> runStateT (transStmt y) env')  (VBool True, env) stmts
-      return v
+  env <- addBuiltInsToEnv emptyEnv
+  (v, _) <- foldM (\(_, env') y -> runStateT (transStmt y) env')  (VBool True, env) stmts
+  return v
 
 transStmt :: Stmt -> Eval
 transStmt x = case x of

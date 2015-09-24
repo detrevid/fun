@@ -119,10 +119,10 @@ instType sub t = case t of
     let env'   = instTypeEnv sub env
         instId = instType sub $ TVar id in
     case instId of
-     TExtRec env'' id' -> TExtRec (env' `Map.union` env'') id'
-     TRec env''        -> TRec (env' `Map.union` env'')
-     TVar id'          -> TExtRec env' id'
-     _                 -> TExtRec env' id
+      TExtRec env'' id' -> TExtRec (env' `Map.union` env'') id'
+      TRec env''        -> TRec (env' `Map.union` env'')
+      TVar id'          -> TExtRec env' id'
+      _                 -> TExtRec env' id
   TList t' -> TList $ instType sub t'
   _          -> t
 
@@ -330,20 +330,17 @@ inferBinOp env exp1 exp2 t = do
 inferDecl :: TypeEnv -> Decl -> InferType (TypeScheme, Subst, TypeEnv)
 inferDecl env decl = case decl of
   DFun fname ids exp -> do
-    newVar1 <- getNewTypeVar
-    newVar2 <- getNewTypeVar
+    newVar1@(TVar id1) <- getNewTypeVar
+    newVar2@(TVar id2) <- getNewTypeVar
     let fun = TFun newVar1 newVar2
         env' = Map.delete fname env
-    case (newVar1, newVar2) of
-      (TVar id1, TVar id2) -> do
-        let env'' = Map.insert fname (TypeScheme [] fun) env'
-        (texp1, sub1) <- infer env'' (ELam ids exp)
-        sub2  <- unify (instType sub1 fun) texp1
-        let ts = generalize env' (instType sub fun)
-            sub = (composeSubst sub2 sub1)
-            env''' =  Map.insert fname ts env'
-        return (ts, sub, instTypeEnv sub env''')
-      _  -> fail "Internal type checker error"
+        env'' = Map.insert fname (TypeScheme [] fun) env'
+    (texp1, sub1) <- infer env'' (ELam ids exp)
+    sub2  <- unify (instType sub1 fun) texp1
+    let ts = generalize env' (instType sub fun)
+        sub = (composeSubst sub2 sub1)
+        env''' =  Map.insert fname ts env'
+    return (ts, sub, instTypeEnv sub env''')
   DVal id exp -> do
     (texp, sub) <- infer env exp
     let env' = Map.delete id env
@@ -361,8 +358,7 @@ checkTypesStmt env stmt = case stmt of
      return e
 
 checkTypes :: Program -> Err TypeEnv
-checkTypes x = case x of
-  Prog stmts -> do
-    let env = emptyTypeEnv
-    env' <- addBuiltInsToTypeEnv env
-    foldM (\x y -> runInferType $ checkTypesStmt x y) env' stmts
+checkTypes (Prog stmts) = do
+  let env = emptyTypeEnv
+  env' <- addBuiltInsToTypeEnv env
+  foldM (\x y -> runInferType $ checkTypesStmt x y) env' stmts
