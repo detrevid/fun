@@ -281,7 +281,6 @@ infer env exp = case exp of
         t = instType sub5 extExp1'
     return (t, sub')
 
-
 inferLit :: TypeEnv -> Literal -> InferType (Type, Subst)
 inferLit env x = case x of
   LTrue      -> return (typeBool, idSub)

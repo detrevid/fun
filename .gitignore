@@ -3,12 +3,11 @@ dist
 .cabal-sandbox/
 cabal.sandbox.config
 
-### JetBrains  IDE
+### JetBrains IDE
 *.iml
 .idea/
 
-
-### Files that are made by ./remake_grammar script
+### Files that are created by ./remake_grammar script
 src/*.hi
 src/*.o
 src/*.aux

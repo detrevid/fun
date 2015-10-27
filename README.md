@@ -2,36 +2,42 @@
 
 ## Overview
 
-The project implements parser created for simple functional language. The parser was created with [The BNF Converter](https://github.com/BNFC/bnfc).
+The project implements interpreter created for a simple functional language. The interpreter was created using [The BNF Converter](https://github.com/BNFC/bnfc).
 
-##Language grammar
+## Language grammar
 
-Grammar of the language can be found under [Fun.cf](src/Fun.cf). It is written using [LBNF notation](https://bnfc.readthedocs.org/en/latest/lbnf.html).
+Grammar of the language can be found here: [Fun.cf](src/Fun.cf). It is written using [the LBNF notation](https://bnfc.readthedocs.org/en/latest/lbnf.html).
 
-You can find example programs written in this toy programming language in the [example directory](examples/).
+You can find example programs written in this toy programming language in [the example directory](examples/). [The good directory](examples/good/) directory contains well-written programs and [the bad directory](examples/bad/) programs that returns an error.
 
-##Usage
+## Usage
 
-###1. Install BNFC
+### 1. Install BNFC
 
-http://bnfc.digitalgrammars.com/download/
+You can find information on [the official site](http://bnfc.digitalgrammars.com/) and [the github page](https://github.com/BNFC/bnfc). The version that has been used during development is 2.8.
 
-###2. Run bash script
+### 2. Run the bash script
 
 ```
 ./remake_grammar.sh
 ```
 
-The script creates necessary files for later compilation using bnfc, so it's vital that you don't miss this step (and perform previous one before this).
+The script creates necessary files for later compilation. The script assumes that BNFC is visible in the environment, so it's vital that you haven't miss the previous step.
 
-###4. Use cabal to install
+### 4. Use cabal to install
 
 ```
-cabal install 
+cabal install
 ```
 
-###5. Run with cabal
+### 5. Run with cabal
 
 ```
 cabal run < examples/good/eg1.in
+```
+
+### Testing
+
+```
+cabal test
 ```
