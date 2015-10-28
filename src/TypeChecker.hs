@@ -109,7 +109,6 @@ ftvScheme (TypeScheme ids t) = Set.difference (ftv t) (Set.fromList ids)
 ftvEnv :: TypeEnv -> Set.Set Ident
 ftvEnv te = Map.foldr (\x y -> Set.union y $ ftvScheme x) Set.empty te
 
--- instance type
 instType :: Subst -> Type ->  Type
 instType sub t = case t of
   TVar id    -> lookupSub sub id
@@ -126,7 +125,6 @@ instType sub t = case t of
   TList t' -> TList $ instType sub t'
   _          -> t
 
--- instance typeScheme
 instTypeScheme :: Subst -> TypeScheme -> TypeScheme
 instTypeScheme sub (TypeScheme ids t) = TypeScheme ids $ instType (foldr Map.delete sub ids) t
 
@@ -336,24 +334,26 @@ inferDecl env decl = case decl of
         env'' = Map.insert fname (TypeScheme [] fun) env'
     (texp1, sub1) <- infer env'' (ELam ids exp)
     sub2  <- unify (instType sub1 fun) texp1
-    let ts = generalize env' (instType sub fun)
-        sub = (composeSubst sub2 sub1)
-        env''' =  Map.insert fname ts env'
-    return (ts, sub, instTypeEnv sub env''')
+    let sub = (composeSubst sub2 sub1)
+        env''' = instTypeEnv sub env'
+        ts = generalize env''' (instType sub fun)
+        env'''' =  Map.insert fname ts env'''
+    return (ts, sub, instTypeEnv sub env'''')
   DVal id exp -> do
     (texp, sub) <- infer env exp
     let env' = Map.delete id env
-        ts = generalize env texp
-        env'' = Map.insert id ts env'
-    return (ts, sub, instTypeEnv sub env'')
+        env'' = instTypeEnv sub env
+        ts = generalize env'' texp
+        env''' = Map.insert id ts env'
+    return (ts, sub, instTypeEnv sub env''')
 
 checkTypesStmt :: TypeEnv -> Stmt -> InferType TypeEnv
 checkTypesStmt env stmt = case stmt of
   SExp exp -> do
-    (t, s) <- infer env exp
+    (_, s) <- infer env exp
     return env
   SDecl decl -> do
-     (t, s, e) <- inferDecl env decl
+     (_, _, e) <- inferDecl env decl
      return e
 
 checkTypes :: Program -> Err TypeEnv

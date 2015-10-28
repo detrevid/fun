@@ -1,0 +1,3 @@
+let f x y = if head $ x then (head $ y) + 10 else (head $ y) + 100 endif;
+
+f $ [true] $ [1,2,3,4,5];
