@@ -53,9 +53,7 @@ builtIns = Map.fromList [(headIdent, VBuiltIn $ headF),
                          (nullIdent, VBuiltIn $ nullF)]
 
 addBuiltInsToEnv :: Env -> Err Env
-addBuiltInsToEnv env =
-  return $ env `Map.union` builtIns
+addBuiltInsToEnv env = return $ env `Map.union` builtIns
 
-addBuiltInsToTypeEnv :: TypeEnv -> Err TypeEnv
-addBuiltInsToTypeEnv env =
-  return $ env `Map.union` builtInsTypes
+addBuiltInsToTypeEnv :: TypeEnv -> TypeEnv
+addBuiltInsToTypeEnv = flip Map.union builtInsTypes

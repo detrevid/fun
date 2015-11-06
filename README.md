@@ -22,7 +22,7 @@ You can find information on [the official site](http://bnfc.digitalgrammars.com/
 ./remake_grammar.sh
 ```
 
-The script creates necessary files for later compilation. The script assumes that BNFC is visible in the environment, so it's vital that you haven't miss the previous step.
+The script creates necessary files for later compilation. The script assumes that BNFC is visible in the environment, so it's vital that you haven't missed the previous step.
 
 ### 4. Use cabal to install
 
