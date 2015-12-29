@@ -11,11 +11,11 @@ import ErrM
 
 main :: IO ()
 main = do
-  interact iterpret
+  interact interpret
   putStrLn ""
 
-iterpret :: String -> String
-iterpret s =
+interpret :: String -> String
+interpret s =
   let p = pProgram (myLexer s)
   in case p of
     Ok prog -> show $ transProgram prog

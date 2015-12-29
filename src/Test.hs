@@ -18,11 +18,11 @@ doTest testName = do
       outTestName = testName ++ ".out"
   inT  <- readFile inTestName
   outT <- readFile outTestName
-  let inTS = (iterpret $ inT) ++ "\n"
+  let inTS = (interpret $ inT) ++ "\n"
   return $ inTS == outT
 
-iterpret :: String -> String
-iterpret s =
+interpret :: String -> String
+interpret s =
   let p = pProgram (myLexer s)
   in case p of
     Ok prog -> show $ transProgram prog
