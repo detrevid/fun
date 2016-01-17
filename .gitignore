@@ -8,23 +8,5 @@ cabal.sandbox.config
 .idea/
 
 ### Files that are created by ./remake_grammar script
-src/*.hi
-src/*.o
-src/*.aux
-src/*.log
-src/*.dvi
-src/*.bak
-src/*.ps
-src/*.txt
-src/*.tex
-src/*.x
-src/*.y
+src/Fun/BNFC/
 src/Makefile
-src/AbsFun.hs
-src/ErrM.hs
-src/LexFun.hs
-src/ParFun.hs
-src/PrintFun.hs
-src/SkelFun.hs
-src/TestFun.hs
-src/TestFun

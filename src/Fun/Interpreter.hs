@@ -1,19 +1,16 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Interpreter (transProgram) where
+module Fun.Interpreter (transProgram) where
 
-import AbsFun
-import BuiltIn
-import Debug.Trace
-import ErrM
-import Preparator
-import TypeChecker
-import Value
+import Fun.BNFC.AbsFun
+import Fun.BuiltIn
+import Fun.Preparator
+import Fun.TypeChecker
+import Fun.Value
 
 import qualified Data.Map as Map
 import Control.Monad.State
-import qualified Control.Monad.Trans.State as StateT
 
 internalErrMsg = "Internal error during interpreting phase"
 
@@ -25,7 +22,7 @@ instance Show Value where
     VNFun (Ident id) _ -> show "Function: " ++ show id
     VRec env -> "{" ++ show env ++ "}"
     VList vals -> show vals
-    VBuiltIn f -> show "Built-in function"
+    VBuiltIn _ -> show "Built-in function"
 
 transProgram :: Program -> Result
 transProgram p = do
@@ -46,7 +43,7 @@ transDecl x = case x of
     oldEnv <- get
     let fun = VNFun id $ Fun args exp oldEnv
     modify (Map.insert id fun)
-    return $ fun
+    return fun
   DVal id exp -> do
     e1 <- transExp exp
     modify (Map.insert id e1)
@@ -56,7 +53,7 @@ transExp :: Exp -> Eval
 transExp x = case x of
   ELet decl exp2  -> do
     oldEnv <- get
-    e1 <- transDecl decl
+    transDecl decl
     result <- transExp exp2
     put oldEnv
     return result
@@ -80,7 +77,7 @@ transExp x = case x of
   ELit lit  -> transLiteral lit
   ELam args exp -> do
     v <- transLam args exp
-    return $ v
+    return v
   EApp exp1 exp2  -> transApp exp1 exp2
   EDot exp id -> do
     e <- transExp exp
@@ -89,7 +86,7 @@ transExp x = case x of
         Just v   -> return v
         Nothing  -> fail internalErrMsg
       _        -> fail internalErrMsg
-  ESum exp1 exp2  -> do
+  ESum exp1 exp2 -> do
     e1 <- transExp exp1
     e2 <- transExp exp2
     case (e1, e2) of

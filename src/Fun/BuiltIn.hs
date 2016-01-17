@@ -1,14 +1,11 @@
-module BuiltIn (addBuiltInsToTypeEnv, addBuiltInsToEnv) where
+module Fun.BuiltIn (addBuiltInsToTypeEnv, addBuiltInsToEnv) where
 
-import AbsFun
-import ErrM
-import Type
-import Value
+import Fun.BNFC.AbsFun
+import Fun.BNFC.ErrM
+import Fun.Type
+import Fun.Value
 
 import qualified Data.Map as Map
-import Debug.Trace
-import Control.Monad.State
-import qualified Control.Monad.Trans.State as StateT
 
 idT1 = Ident "t1"
 internalErrMsg = "Internal error in built-in function"

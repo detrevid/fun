@@ -1,7 +1,7 @@
-module Value where
+module Fun.Value where
 
-import AbsFun
-import ErrM
+import Fun.BNFC.AbsFun
+import Fun.BNFC.ErrM
 
 import qualified Data.Map as Map
 import qualified Control.Monad.Trans.State as StateT

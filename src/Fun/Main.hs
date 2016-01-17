@@ -1,13 +1,8 @@
-module Main where
+module Fun.Main where
 
-import LexFun
-import ParFun
-import AbsFun
-import Interpreter
-
-import Control.Monad.State
-import Data.Map as Map
-import ErrM
+import Fun.BNFC.ErrM
+import Fun.BNFC.ParFun
+import Fun.Interpreter
 
 main :: IO ()
 main = do

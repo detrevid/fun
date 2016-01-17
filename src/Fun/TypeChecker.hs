@@ -1,51 +1,50 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module TypeChecker (checkTypes) where
+module Fun.TypeChecker (checkTypes) where
 
-import AbsFun
-import BuiltIn
-import ErrM
-import Type
+import Fun.BNFC.AbsFun
+import Fun.BNFC.ErrM
+import Fun.BuiltIn
+import Fun.Type
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
 import Control.Monad
 import Control.Applicative (Applicative)
-import Control.Monad.Trans.State
+import Control.Monad.State
 import Data.Foldable (foldrM)
-import Debug.Trace
 
 internalErrMsg :: String
 internalErrMsg = "Internal error during type checking phase"
 
 singletonRec :: Ident -> InferType Type
-singletonRec id = do
+singletonRec ident = do
   newVar <- getNewTypeVar
-  return $ TRec $ Map.singleton id $ TypeScheme [] newVar
+  return $ TRec $ Map.singleton ident $ TypeScheme [] newVar
 
 getVarId :: Type -> InferType Ident
 getVarId t = case t of
-  TVar id -> return id
+  TVar ident -> return ident
   _       -> fail internalErrMsg
 
 makeExtRec :: Type -> InferType Type
 makeExtRec t = case t of
   TRec env -> do
     newVar <- getNewTypeVar
-    id <- getVarId newVar
-    return $ TExtRec env id
+    ident <- getVarId newVar
+    return $ TExtRec env ident
   _        -> fail internalErrMsg
 
 getField :: Type -> Ident -> InferType Type
-getField t id = do
+getField t ident = do
   t' <- applySubst t
   case t' of
-    TRec env      -> case Map.lookup id env of
+    TRec env -> case Map.lookup ident env of
       Just ts -> instantAll ts
-      Nothing -> fail $ "Record does not have field called: " ++ show id
-    TExtRec env _ -> getField (TRec env) id
-    _        -> fail internalErrMsg
+      Nothing -> fail $ "Record does not have a field called: " ++ show ident
+    TExtRec env _ -> getField (TRec env) ident
+    _  -> fail internalErrMsg
 
 type Subst = Map.Map Ident Type
 
@@ -54,17 +53,19 @@ data TypeVarSupplier = TypeVarSupplier [String]
 newTypeVarSupplier :: TypeVarSupplier
 newTypeVarSupplier = TypeVarSupplier [ "t" ++ show n | n <- [1..]]
 
-type InferState = (TypeVarSupplier, Subst, TypeEnv)
+data InferState = InferState { supplier :: TypeVarSupplier, substitution :: Subst, environment :: TypeEnv}
+
+defaultInferState = InferState { supplier = newTypeVarSupplier, substitution = idSub, environment =  emptyEnv }
 
 newtype InferType a = InferType (StateT InferState Err a)
-  deriving (Functor, Applicative, Monad)
+  deriving (Functor, Applicative, Monad, MonadState InferState)
 
 getNewTypeVarId' :: InferState -> (Ident, InferState)
-getNewTypeVarId' (TypeVarSupplier ids, sub, env) =
-  (Ident $ head ids, (TypeVarSupplier $ tail ids, sub, env))
+getNewTypeVarId' (InferState (TypeVarSupplier idents) sub env) =
+  (Ident $ head idents, InferState (TypeVarSupplier $ tail idents) sub env)
 
 getNewTypeVarId :: InferType Ident
-getNewTypeVarId = InferType $ state getNewTypeVarId'
+getNewTypeVarId = state getNewTypeVarId'
 
 getNewTypeVar' :: InferState -> (Type, InferState)
 getNewTypeVar' st =
@@ -72,49 +73,25 @@ getNewTypeVar' st =
  where (varId, st') = getNewTypeVarId' st
 
 getNewTypeVar:: InferType Type
-getNewTypeVar = InferType $ state getNewTypeVar'
-
-getSubst' :: InferState -> (Subst, InferState)
-getSubst' st@(_, sub, _) = (sub, st)
+getNewTypeVar = state getNewTypeVar'
 
 getSubst :: InferType Subst
-getSubst = InferType $ state getSubst'
-
-getEnv' :: InferState -> (TypeEnv, InferState)
-getEnv' st@(_, _, env) = (env, st)
+getSubst = gets substitution
 
 getEnv :: InferType TypeEnv
-getEnv = InferType $ state getEnv'
-
-putEnv' :: TypeEnv -> InferState -> ((), InferState)
-putEnv' env (tvs, sub, _) =  ((), (tvs, sub, env))
+getEnv = gets environment
 
 putEnv :: TypeEnv -> InferType ()
-putEnv env = InferType $ state $ putEnv' env
-
-addSubst' :: Subst -> InferState -> ((), InferState)
-addSubst' sub2 (tvs, sub, env)  =
-  ((), (tvs, sub', env))
- where sub' = composeSubst sub2 sub
+putEnv env = modify $ \s -> s { environment = env }
 
 addSubst :: Subst -> InferType ()
-addSubst sub = InferType $ state $ addSubst' sub
-
-addToEnv' :: Ident -> TypeScheme -> InferState -> ((), InferState)
-addToEnv' id ts (tvs, sub, env) =
-  ((), (tvs, sub, env'))
- where env' = Map.insert id ts env
+addSubst sub = modify $ \s -> s { substitution = composeSubst sub $ substitution s }
 
 addToEnv :: Ident -> TypeScheme -> InferType ()
-addToEnv id ts = InferType $ state $ addToEnv' id ts
-
-removeFromEnv' :: Ident -> InferState -> ((), InferState)
-removeFromEnv' id (tvs, sub, env) =
-  ((), (tvs, sub, env'))
- where env' = Map.delete id env
+addToEnv ident ts = modify $ \s -> s { environment = Map.insert ident ts $ environment s }
 
 removeFromEnv :: Ident ->  InferType ()
-removeFromEnv id = InferType $ state $ removeFromEnv' id
+removeFromEnv ident = modify $ \s -> s { environment = Map.delete ident $ environment s }
 
 applySubst :: Type -> InferType Type
 applySubst t = do
@@ -133,15 +110,15 @@ applySubstTypeEnv = do
   putEnv env'
 
 runInferType :: InferType a -> Err a
-runInferType (InferType x) = evalStateT x (newTypeVarSupplier, idSub, emptyEnv)
+runInferType (InferType x) = evalStateT x defaultInferState
 
 emptyEnv :: TypeEnv
 emptyEnv = Map.empty
 
 instantAll :: TypeScheme -> InferType Type
-instantAll (TypeScheme ids t) = do
-  vars <- replicateM (length ids) getNewTypeVar
-  let sub = Map.fromList (zip ids vars)
+instantAll (TypeScheme idents t) = do
+  vars <- replicateM (length idents) getNewTypeVar
+  let sub = Map.fromList (zip idents vars)
       t' = instType sub t
   return t'
 
@@ -149,46 +126,40 @@ idSub :: Subst
 idSub = Map.empty
 
 lookupSub :: Subst -> Ident -> Type
-lookupSub sub id = case Map.lookup id sub of
-    Nothing  -> TVar id
-    Just t   -> t
+lookupSub sub ident = maybe (TVar ident) id $ Map.lookup ident sub
 
 lookupTypeEnv' :: Monad m => TypeEnv -> Ident -> m TypeScheme
-lookupTypeEnv' env id = case Map.lookup id env of
-  Nothing  -> fail $ "Variable " ++ show id ++ "is not bound"
-  Just t   -> return t
+lookupTypeEnv' env ident =
+  maybe (fail $ "Variable " ++ show ident ++ "is not bound") (return . id) $ Map.lookup ident env
 
 lookupTypeEnv :: Ident -> InferType TypeScheme
-lookupTypeEnv id = do
+lookupTypeEnv ident = do
   env <- getEnv
-  lookupTypeEnv' env id
+  lookupTypeEnv' env ident
 
 composeSubst :: Subst -> Subst -> Subst
 composeSubst sub1 sub2 = Map.union (Map.map (instType sub1) sub2) sub1
-
-composeSubsts :: [Subst] -> Subst
-composeSubsts = foldl composeSubst idSub
 
 ftv :: Type -> InferType (Set.Set Ident)
 ftv t = do
   case t of
     TInner _   -> return Set.empty
-    TVar id    -> return $ Set.singleton id
+    TVar ident    -> return $ Set.singleton ident
     TFun t1 t2 -> do
       ftvT1 <- ftv t1
       ftvT2 <- ftv t2
       return $ Set.union ftvT1 ftvT2
     TRec env   -> ftvEnv' env
-    TExtRec env id -> do
-      ftvId <- ftv $ TVar id
+    TExtRec env ident -> do
+      ftvId <- ftv $ TVar ident
       ftvREnv <- ftv $ TRec env
       return $ Set.union ftvREnv ftvId
     TList t1   -> ftv t1
 
 ftvScheme :: TypeScheme -> InferType (Set.Set Ident)
-ftvScheme (TypeScheme ids t) = do
+ftvScheme (TypeScheme idents t) = do
   ftvT <- ftv t
-  return $ Set.difference ftvT (Set.fromList ids)
+  return $ Set.difference ftvT (Set.fromList idents)
 
 ftvEnv' :: TypeEnv -> InferType (Set.Set Ident)
 ftvEnv' = foldrM (\x y -> do
@@ -202,22 +173,22 @@ ftvEnv = do
 
 instType :: Subst -> Type -> Type
 instType sub t = case t of
-  TVar id    -> lookupSub sub id
-  TFun t1 t2 -> TFun (instType sub t1) (instType sub t2)
-  TRec env   -> TRec $ instTypeEnv sub env
-  TExtRec env id ->
+  TVar ident        -> lookupSub sub ident
+  TFun t1 t2        -> TFun (instType sub t1) (instType sub t2)
+  TRec env          -> TRec $ instTypeEnv sub env
+  TExtRec env ident ->
     let env'   = instTypeEnv sub env
-        instId = instType sub $ TVar id in
+        instId = instType sub $ TVar ident in
     case instId of
-      TExtRec env'' id' -> TExtRec (env' `Map.union` env'') id'
-      TRec env''        -> TRec (env' `Map.union` env'')
-      TVar id'          -> TExtRec env' id'
-      _                 -> TExtRec env' id
-  TList t' -> TList $ instType sub t'
-  _          -> t
+      TExtRec env'' ident' -> TExtRec (env' `Map.union` env'') ident'
+      TRec env''           -> TRec (env' `Map.union` env'')
+      TVar ident'          -> TExtRec env' ident'
+      _                    -> TExtRec env' ident
+  TList t'          -> TList $ instType sub t'
+  _                 -> t
 
 instTypeScheme :: Subst -> TypeScheme -> TypeScheme
-instTypeScheme sub (TypeScheme ids t) = TypeScheme ids $ instType (foldr Map.delete sub ids) t
+instTypeScheme sub (TypeScheme idents t) = TypeScheme idents $ instType (foldr Map.delete sub idents) t
 
 instTypeEnv :: Subst -> TypeEnv -> TypeEnv
 instTypeEnv sub env = Map.map (instTypeScheme sub) env
@@ -237,13 +208,13 @@ unify t1 t2 = do
   if t1' == t2' then return ()
   else do
     let errMsg = "Could not unify types: " ++ show t1'  ++ " " ++ show t2'
-        unifyVar id t = do
+        unifyVar ident t = do
           ftvT <- ftv t
-          if Set.member id $ ftvT then fail errMsg
-                                  else addSubst (Map.singleton id t)
+          if Set.member ident $ ftvT then fail errMsg
+                                     else addSubst (Map.singleton ident t)
     case (t1', t2') of
-      (TVar id, _)           -> unifyVar id t2'
-      (_, TVar id)           -> unifyVar id t1'
+      (TVar ident, _) -> unifyVar ident t2'
+      (_, TVar ident) -> unifyVar ident t1'
       (TFun x y, TFun x' y') -> do
         unify x x'
         unify y y'
@@ -255,15 +226,15 @@ unify t1 t2 = do
             (_, ts2) = unzip lenv2
             tss = zip ts1 ts2
         mapM_ (\(x, y) -> unifyTypeSchemes x y) tss
-      (TRec env1, TExtRec env2 id) -> do
+      (TRec env1, TExtRec env2 ident) -> do
         when (not $ Map.keysSet env2 `Set.isSubsetOf` Map.keysSet env1) $ fail errMsg
         let commKeys = Map.keysSet env2 `Set.intersection` Map.keysSet env1
             (commEnv1, diffEnv1) = Map.partitionWithKey (\x _ -> Set.member x commKeys) env1
         unify (TRec commEnv1) (TRec env2)
         newVarId <- getNewTypeVarId
-        unify (TVar id) (TExtRec diffEnv1 newVarId)
+        unify (TVar ident) (TExtRec diffEnv1 newVarId)
       (TExtRec _ _, TRec _) -> unify t2' t1'
-      (TExtRec env1 id1, TExtRec env2 id2) -> do
+      (TExtRec env1 ident1, TExtRec env2 ident2) -> do
         let commKeys = Map.keysSet env1 `Set.intersection` Map.keysSet env2
             diffKeys1 =  Map.keysSet env1 `Set.difference` Map.keysSet env2
             diffKeys2 =  Map.keysSet env2 `Set.difference` Map.keysSet env1
@@ -273,11 +244,11 @@ unify t1 t2 = do
             diffEnv2 = Map.filterWithKey (\x _ -> Set.member x diffKeys2) env2
         unify (TRec commEnv1) (TRec commEnv2)
         newVarId1 <- getNewTypeVarId
-        unify (TVar id1) (TExtRec diffEnv2 newVarId1)
+        unify (TVar ident1) (TExtRec diffEnv2 newVarId1)
         newVarId2 <- getNewTypeVarId
-        unify (TVar id2) (TExtRec diffEnv1 newVarId2)
+        unify (TVar ident2) (TExtRec diffEnv1 newVarId2)
       (TList t1'', TList t2'') -> unify t1'' t2''
-      _                      -> fail errMsg
+      _ -> fail errMsg
 
 unifyTypeSchemes :: TypeScheme -> TypeScheme -> InferType ()
 unifyTypeSchemes ts1 ts2 = do
@@ -297,23 +268,23 @@ infer exp = case exp of
     texp2 <- infer exp2
     unify texp1 texp2
     return texp1
-  ELog exp1 logopr exp2  -> inferBinOp exp1 exp2 typeBool
-  EEq exp1 eqopr exp2 -> do
+  ELog exp1 _ exp2  -> inferBinOp exp1 exp2 typeBool
+  EEq exp1 _ exp2 -> do
     texp1 <- infer exp1
     texp2 <- infer exp2
     unify texp1 texp2
     return typeBool
-  ERel exp1 relopr exp2 -> do
-    texp <- inferBinOp exp1 exp2 typeInt
+  ERel exp1 _ exp2 -> do
+    inferBinOp exp1 exp2 typeInt
     return typeBool
-  EAdd exp1 addopr exp2  -> inferBinOp exp1 exp2 typeInt
-  EMul exp1 mulopr exp2  -> inferBinOp exp1 exp2 typeInt
+  EAdd exp1 _ exp2 -> inferBinOp exp1 exp2 typeInt
+  EMul exp1 _ exp2 -> inferBinOp exp1 exp2 typeInt
   ENeg exp1 -> do
     texp <- infer exp1
     unify texp typeBool
     return typeBool
-  EVal id -> do
-    ts <- lookupTypeEnv id
+  EVal ident -> do
+    ts <- lookupTypeEnv ident
     instantAll ts
   ELit lit -> inferLit lit
   ELam args exp1 -> case args of
@@ -332,12 +303,12 @@ infer exp = case exp of
     texp2 <- infer exp2
     unify texp1 (TFun texp2 newVar)
     return newVar
-  EDot exp1 id -> do
+  EDot exp1 ident -> do
     texp1 <- infer exp1
-    idRec <- singletonRec id
-    idRecExt <- makeExtRec idRec
-    unify texp1 idRecExt
-    getField texp1 id
+    idRecec <- singletonRec ident
+    idRececExt <- makeExtRec idRecec
+    unify texp1 idRececExt
+    getField texp1 ident
   ESum exp1 exp2 -> do
     texp1 <- infer exp1
     texp2 <- infer exp2
@@ -351,6 +322,7 @@ infer exp = case exp of
     unify texp2 extExp2
     unify extExp1 extExp2
     return extExp1
+  _ -> fail $ internalErrMsg
 
 inferLit :: Literal -> InferType Type
 inferLit x = case x of
@@ -360,10 +332,10 @@ inferLit x = case x of
   LRec decls -> do
      oldEnv <- getEnv
      inferedExps <- mapM inferDecl decls
-     let ids = map (\x -> case x of
-           DFun id _ _ -> id
-           DVal id _ -> id) decls
-         typeEnv = Map.fromList (zip ids inferedExps)
+     let idents = map (\x -> case x of
+           DFun ident _ _ -> ident
+           DVal ident _ -> ident) decls
+         typeEnv = Map.fromList (zip idents inferedExps)
      putEnv oldEnv
      return $ TRec typeEnv
   LList exps -> do
@@ -376,7 +348,7 @@ inferLit x = case x of
         return $ TList $ h
       []   -> do
         newVar <- getNewTypeVar
-        return (TList $ newVar)
+        return $ TList $ newVar
   _          -> fail internalErrMsg
 
 inferBinOp :: Exp -> Exp -> Type -> InferType Type
@@ -389,34 +361,29 @@ inferBinOp exp1 exp2 t = do
 
 inferDecl :: Decl -> InferType TypeScheme
 inferDecl decl = case decl of
-  DFun fname ids exp -> do
-    newVar1@(TVar id1) <- getNewTypeVar
-    newVar2@(TVar id2) <- getNewTypeVar
+  DFun fname idents exp -> do
+    newVar1 <- getNewTypeVar
+    newVar2 <- getNewTypeVar
     let fun = TFun newVar1 newVar2
-    oldEnv <- getEnv
     removeFromEnv fname
     addToEnv fname (TypeScheme [] fun)
-    texp1 <- infer (ELam ids exp)
+    texp1 <- infer (ELam idents exp)
     unify fun texp1
     removeFromEnv fname
     ts <- generalize fun
     addToEnv fname ts
     return ts
-  DVal id exp -> do
+  DVal ident exp -> do
     texp <- infer exp
-    removeFromEnv id
+    removeFromEnv ident
     ts <- generalize texp
-    addToEnv id ts
+    addToEnv ident ts
     return ts
 
 checkTypesStmt :: Stmt -> InferType ()
 checkTypesStmt stmt = case stmt of
-  SExp exp -> do
-    infer exp
-    return ()
-  SDecl decl -> do
-    inferDecl decl
-    return ()
+  SExp exp -> void $ infer exp
+  SDecl decl -> void $ inferDecl decl
 
 checkTypes' :: Program -> InferType ()
 checkTypes' (Prog stmts) = do

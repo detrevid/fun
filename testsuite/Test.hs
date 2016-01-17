@@ -1,14 +1,14 @@
 module Main where
 
-import LexFun
-import ParFun
-import AbsFun
-import Interpreter
-import ErrM
-import Debug.Trace
+import Fun.BNFC.AbsFun
+import Fun.BNFC.ErrM
+import Fun.BNFC.LexFun
+import Fun.BNFC.ParFun
+import Fun.Interpreter
 
 import Control.Monad (when)
 import Data.Char
+import Debug.Trace
 import Text.Read
 import System.Exit (exitFailure)
 

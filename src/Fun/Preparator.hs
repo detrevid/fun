@@ -1,9 +1,7 @@
-module Preparator (prepareProgram) where
+module Fun.Preparator (prepareProgram) where
 
-import AbsFun
-import ErrM
-
-internalErrMsg = "Internal error during preparation stage"
+import Fun.BNFC.AbsFun
+import Fun.BNFC.ErrM
 
 prepareProgram :: Program -> Err Program
 prepareProgram p = case p of

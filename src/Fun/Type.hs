@@ -1,17 +1,10 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Type where
+module Fun.Type where
 
-import AbsFun
-import ErrM
+import Fun.BNFC.AbsFun
 
 import qualified Data.Map as Map
-import qualified Data.Set as Set
-
-import Control.Monad
-import Control.Applicative (Applicative)
-import Control.Monad.Trans.State
-import Debug.Trace
 
 data Type = TInner Inner
           | TVar Ident

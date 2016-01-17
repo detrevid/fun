@@ -4,14 +4,15 @@ Build-Type:        Simple
 cabal-version:     >= 1.10
 
 executable fun
-  main-is:         Main.hs
-  hs-source-dirs:  src
-  build-depends:   base, array, mtl, containers, transformers
-  default-language:  Haskell2010
+  main-is:          Fun/Main.hs
+  hs-source-dirs:   src/
+  build-depends:    base, array, mtl, containers, transformers
+  default-language: Haskell2010
+  ghc-options:      -main-is Fun.Main -W
 
 Test-Suite test
-  type:       exitcode-stdio-1.0
-  main-is:    Test.hs
-  hs-source-dirs:  src
-  build-depends: base, array, mtl, containers, transformers
-  default-language:  Haskell2010
+  type:             exitcode-stdio-1.0
+  main-is:          Test.hs
+  hs-source-dirs:   testsuite/ src/
+  build-depends:    base, array, mtl, containers, transformers
+  default-language: Haskell2010

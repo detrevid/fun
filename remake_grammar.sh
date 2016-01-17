@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 cd src
-bnfc -m -haskell Fun.cf
+bnfc -m --haskell -p Fun.BNFC Fun/Fun.cf
 make
 cd ..
