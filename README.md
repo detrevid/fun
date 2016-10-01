@@ -6,7 +6,7 @@ The project implements interpreter created for a simple functional language. The
 
 ## Language grammar
 
-Grammar of the language can be found here: [Fun.cf](src/Fun.cf). It is written using [the LBNF notation](https://bnfc.readthedocs.org/en/latest/lbnf.html).
+Grammar of the language can be found here: [Fun.cf](src/Fun/Fun.cf). It is written using [the LBNF notation](https://bnfc.readthedocs.org/en/latest/lbnf.html).
 
 You can find example programs written in this toy programming language in [the example directory](examples/). [The good directory](examples/good/) directory contains well-written programs and [the bad directory](examples/bad/) programs that returns an error.
 
@@ -41,3 +41,4 @@ cabal run < examples/good/eg1.in
 ```
 cabal test
 ```
+
